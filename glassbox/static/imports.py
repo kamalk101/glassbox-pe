@@ -115,17 +115,29 @@ class ImportAnalysis:
 
 def _normalise(function: str) -> str:
     name = function.strip().lower()
+    if "." in name:
+        name = name.rsplit(".", 1)[-1]
     if "@" in name:
         name = name.split("@", 1)[0]
     return name.lstrip("_")
 
 
-def analyze(imports: dict[str, list[str]], ordinal_imports: dict[str, list[int]]) -> ImportAnalysis:
-    lookup: dict[str, list[str]] = {}
-    for behaviour, functions in BEHAVIORS.items():
-        for function in functions:
-            lookup.setdefault(function, []).append(behaviour)
+API_LOOKUP: dict[str, list[str]] = {}
+for _behaviour, _functions in BEHAVIORS.items():
+    for _function in _functions:
+        API_LOOKUP.setdefault(_function, []).append(_behaviour)
 
+
+def classify_api(function: str) -> list[str]:
+    """Return the behaviours associated with an API name.
+
+    Accepts either a bare name (`CreateFileA`) or a Speakeasy-style name
+    (`KERNEL32.CreateFileA`).
+    """
+    return API_LOOKUP.get(_normalise(function), [])
+
+
+def analyze(imports: dict[str, list[str]], ordinal_imports: dict[str, list[int]]) -> ImportAnalysis:
     groups: dict[str, list[str]] = {behaviour: [] for behaviour in BEHAVIORS}
     all_functions: list[str] = []
     seen: set[str] = set()
@@ -135,8 +147,7 @@ def analyze(imports: dict[str, list[str]], ordinal_imports: dict[str, list[int]]
             if function not in seen:
                 seen.add(function)
                 all_functions.append(function)
-            normalised = _normalise(function)
-            for behaviour in lookup.get(normalised, []):
+            for behaviour in classify_api(function):
                 if function not in groups[behaviour]:
                     groups[behaviour].append(function)
 

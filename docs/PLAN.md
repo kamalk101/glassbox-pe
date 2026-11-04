@@ -79,10 +79,10 @@ Every fact is an event:
 |---|---|---|
 | **0** | Repo, CLI, case store, schema v0, synthetic PE fixture | done |
 | **1** | Static core: PE parse, strings/IOCs, import behaviours, rules, scoring, terminal + JSON | done |
-| **2** | Rule depth, sneakiness breakdown, YARA, capa, installer detection | next |
+| **2** | Rule depth, sneakiness breakdown, YARA, capa, installer detection | part done (sneakiness reasons) |
 | **3** | Packer detection + UPX/generic unpack + before/after diff | planned |
-| **4** | Speakeasy emulation: process/file/network/registry events, dropped files, plaintext network bodies | planned |
-| **5** | Correlation, technique-level verdicts, evidence graph, HTML report, differential | planned |
+| **4** | Speakeasy emulation: process/file/network/registry events, dropped files | basic done (API events, dropped files, behaviour findings) |
+| **5** | Correlation, technique-level verdicts, evidence graph, HTML report, differential | partial (joint verdict) |
 | **6** | Corpus, evaluation (PR-AUC, per-technique recall, evasion), demo script | planned |
 | **7** | UI: case dashboard, evidence graph, timeline, diff viewer | optional |
 
@@ -103,10 +103,11 @@ enrichment, Qiling fallback.
 ## Safety rules
 
 - Never execute a sample on the host.
-- Emulation runs inside Speakeasy/Qiling, never natively.
+- Emulation runs inside Speakeasy/Qiling, in a subprocess, never natively.
 - Real samples only inside an isolated environment; live demo uses synthetic samples.
 - No outbound network during analysis; network calls are simulated.
-- Case files store hashes and metadata, not the original binary.
+- Case files store hashes and metadata, not the original binary (dropped files are
+  captured separately under the case's emulation directory).
 - Do not add features that make samples run on the host.
 
 ## Evaluation plan
@@ -127,6 +128,8 @@ enrichment, Qiling fallback.
 glassbox scan sample.exe              # static triage
 glassbox scan sample.exe --json       # machine-readable
 glassbox scan sample.exe --quiet      # one-line verdict
+glassbox emu sample.exe --timeout 60  # static + emulation
+glassbox analyze sample.exe           # alias for the deep path
 glassbox cases list
 glassbox cases show <id-or-prefix>
 glassbox rules list

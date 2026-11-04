@@ -89,11 +89,14 @@ def _label(score: int) -> VerdictLabel:
     return VerdictLabel.CLEAN
 
 
-def _confidence(findings: list[Finding], score: int) -> float:
+def _confidence(findings: list[Finding], static_only: bool = True) -> float:
     weight = sum(SEVERITY_WEIGHT[f.severity] for f in findings)
     high = sum(1 for f in findings if SEVERITY_RANK[f.severity] >= 3)
     value = 0.45 + min(0.30, weight / 200.0) + min(0.10, high * 0.03)
-    return round(min(0.80, value), 2)  # static-only ceiling
+    if not static_only:
+        value += 0.08
+    ceiling = 0.80 if static_only else 0.90
+    return round(min(ceiling, value), 2)
 
 
 def counterfactuals(findings: list[Finding], limit: int = 3) -> list[dict]:
@@ -131,15 +134,24 @@ def counterfactuals(findings: list[Finding], limit: int = 3) -> list[dict]:
 
 def build_verdict(
     findings: list[Finding],
-    info: PEInfo,
-    strings: StringsResult,
-    imports: ImportAnalysis,
+    info: PEInfo | None = None,
+    strings: StringsResult | None = None,
+    imports: ImportAnalysis | None = None,
     *,
     parse_error: str | None = None,
+    static_only: bool = True,
+    sneakiness: int | None = None,
+    sneakiness_reasons: list[str] | None = None,
 ) -> Verdict:
-    sneakiness, reasons = compute_sneakiness(info, strings, imports)
+    if sneakiness is None:
+        if info is not None and strings is not None and imports is not None:
+            sneakiness, reasons = compute_sneakiness(info, strings, imports)
+        else:
+            sneakiness, reasons = 0, []
+    else:
+        reasons = list(sneakiness_reasons or [])
 
-    if parse_error or not info.is_pe:
+    if parse_error or (info is not None and not info.is_pe):
         return Verdict(
             label=VerdictLabel.INCONCLUSIVE,
             score=0,
@@ -148,39 +160,45 @@ def build_verdict(
             summary=f"Could not parse the file as a PE: {parse_error or 'unknown error'}.",
             next_steps=["Verify the file is a valid Windows executable.", "Try a known-good PE for comparison."],
             counterfactuals=[],
-            static_only=True,
+            sneakiness_reasons=reasons,
+            static_only=static_only,
         )
 
     score = min(100, int(round(_weighted_sum(findings))))
     label = _label(score)
-    confidence = _confidence(findings, score)
+    confidence = _confidence(findings, static_only=static_only)
 
     high = [f for f in findings if SEVERITY_RANK[f.severity] >= 3]
+    mode = "Static" if static_only else "Static and emulated"
     if label is VerdictLabel.MALICIOUS:
         summary = (
-            f"Static evidence is consistent with malware: {len(high)} high/critical findings "
+            f"{mode} evidence is consistent with malware: {len(high)} high/critical findings "
             f"across {len({f.category for f in findings})} evidence categories."
         )
     elif label is VerdictLabel.SUSPICIOUS:
         summary = (
-            f"The sample shows suspicious capabilities ({len(high)} high/critical findings). "
-            "Behavioral confirmation is needed."
+            f"{mode} evidence shows suspicious capabilities ({len(high)} high/critical findings). "
+            + ("Behavioral confirmation is needed." if static_only else "Review the attempted behavior.")
         )
     else:
-        summary = "No strong static indicators were found. This is not a guarantee of safety."
+        summary = f"{mode} evidence shows no strong indicators. This is not a guarantee of safety."
 
     steps: list[str] = []
-    if info.packer_hint:
-        steps.append("Unpack the sample and re-run static analysis (Phase 3).")
-    if info.installer_hint:
-        steps.append("Extract the installer payloads and analyze them separately.")
-    if info.is_dotnet:
-        steps.append("Add IL-level analysis for this .NET assembly.")
-    if label in (VerdictLabel.SUSPICIOUS, VerdictLabel.MALICIOUS):
-        steps.append("Run emulation to turn static capabilities into attempted behavior (Phase 4).")
-        steps.append("Correlate static and behavioral evidence before final judgement (Phase 5).")
-    if info.embedded_pe:
-        steps.append("Extract the embedded PE resource and queue it as a child case.")
+    if info is not None:
+        if info.packer_hint:
+            steps.append("Unpack the sample and re-run static analysis (Phase 3).")
+        if info.installer_hint:
+            steps.append("Extract the installer payloads and analyze them separately.")
+        if info.is_dotnet:
+            steps.append("Add IL-level analysis for this .NET assembly.")
+        if info.embedded_pe:
+            steps.append("Extract the embedded PE resource and queue it as a child case.")
+    if static_only:
+        steps.append("Run emulation to turn static capabilities into attempted behavior.")
+    else:
+        steps.append("Correlate attempted behavior with static findings and review the evidence IDs.")
+    if label in (VerdictLabel.SUSPICIOUS, VerdictLabel.MALICIOUS) and not static_only:
+        steps.append("Confirm in an isolated VM if available (observed evidence).")
     if not steps:
         steps.append("No immediate action; keep the case for comparison.")
 
@@ -193,5 +211,6 @@ def build_verdict(
         techniques=[],
         next_steps=steps,
         counterfactuals=counterfactuals(findings),
-        static_only=True,
+        sneakiness_reasons=reasons,
+        static_only=static_only,
     )

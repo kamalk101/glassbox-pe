@@ -12,6 +12,7 @@ from rich.table import Table
 from .analyzer import analyze_static
 from .cases import CaseStore
 from .config import resolve_cases_dir
+from .emu import EmulationOutcome, apply_emulation, run_emulation
 from .ingest import ingest
 from .report import render_case, render_json, render_quiet
 from .schema import TOOL_VERSION, Case, VerdictLabel
@@ -46,6 +47,20 @@ def _scan(path: Path, cases_dir: str | None, force: bool) -> tuple[Case, bool, C
     case = analyze_static(intake)
     store.save(case)
     return case, False, store
+
+
+def _deep_scan(
+    path: Path,
+    cases_dir: str | None,
+    timeout: int,
+    force: bool,
+) -> tuple[Case, EmulationOutcome, CaseStore]:
+    case, _, store = _scan(path, cases_dir, force)
+    workdir = store.case_dir(case.case_id) / "emulation"
+    outcome = run_emulation(path, timeout=timeout, workdir=workdir)
+    apply_emulation(case, outcome)
+    store.save(case)
+    return case, outcome, store
 
 
 @cli.command()
@@ -184,15 +199,31 @@ def report(ctx: click.Context, case_id: str, cases_dir: str | None, as_json: boo
 @click.argument("path", type=click.Path(exists=True, dir_okay=False, path_type=Path))
 @click.option("--cases-dir", default=None)
 @click.option("--json", "as_json", is_flag=True)
+@click.option("--timeout", default=60, type=click.IntRange(1, 600), show_default=True)
+@click.option("--force", is_flag=True, help="Re-run static analysis before emulating.")
 @click.pass_context
-def analyze(ctx: click.Context, path: Path, cases_dir: str | None, as_json: bool) -> None:
-    """Full pipeline (static + unpack + emulation). Planned for Phase 5."""
-    click.echo(
-        "deep analysis is planned for Phase 5. For now run:\n"
-        f"  glassbox scan {path}",
-        err=True,
-    )
-    ctx.exit(3)
+def analyze(
+    ctx: click.Context,
+    path: Path,
+    cases_dir: str | None,
+    as_json: bool,
+    timeout: int,
+    force: bool,
+) -> None:
+    """Static analysis plus emulation (deep triage)."""
+    try:
+        case, outcome, store = _deep_scan(path, cases_dir, timeout, force)
+    except (OSError, ValueError) as exc:
+        click.echo(f"error: {exc}", err=True)
+        ctx.exit(3)
+    if as_json:
+        click.echo(render_json(case))
+    else:
+        render_case(case, case_path=str(store.case_path(case.case_id)))
+    if not getattr(outcome, "ran", False):
+        click.echo(f"emulation failed: {getattr(outcome, 'error', 'unknown error')}", err=True)
+        ctx.exit(3)
+    ctx.exit(_exit_code(case))
 
 
 @cli.command()
@@ -206,11 +237,33 @@ def unpack(ctx: click.Context, path: Path) -> None:
 
 @cli.command()
 @click.argument("path", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.option("--cases-dir", default=None)
+@click.option("--json", "as_json", is_flag=True)
+@click.option("--timeout", default=60, type=click.IntRange(1, 600), show_default=True)
+@click.option("--force", is_flag=True, help="Re-run static analysis before emulating.")
 @click.pass_context
-def emu(ctx: click.Context, path: Path) -> None:
-    """Emulate the sample and collect behaviour. Planned for Phase 4."""
-    click.echo(f"emulation is planned for Phase 4 (input: {path}).", err=True)
-    ctx.exit(3)
+def emu(
+    ctx: click.Context,
+    path: Path,
+    cases_dir: str | None,
+    as_json: bool,
+    timeout: int,
+    force: bool,
+) -> None:
+    """Emulate the sample and collect attempted behaviour."""
+    try:
+        case, outcome, store = _deep_scan(path, cases_dir, timeout, force)
+    except (OSError, ValueError) as exc:
+        click.echo(f"error: {exc}", err=True)
+        ctx.exit(3)
+    if as_json:
+        click.echo(render_json(case))
+    else:
+        render_case(case, case_path=str(store.case_path(case.case_id)))
+    if not getattr(outcome, "ran", False):
+        click.echo(f"emulation failed: {getattr(outcome, 'error', 'unknown error')}", err=True)
+        ctx.exit(3)
+    ctx.exit(_exit_code(case))
 
 
 @cli.group()

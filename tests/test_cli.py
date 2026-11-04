@@ -67,6 +67,26 @@ def test_cli_stub_commands(tmp_path):
     sample.write_bytes(build_pe())
     runner = CliRunner()
 
-    for command in ("unpack", "emu", "analyze"):
-        result = runner.invoke(cli, [command, str(sample)])
-        assert result.exit_code == 3
+    result = runner.invoke(cli, ["unpack", str(sample)])
+    assert result.exit_code == 3
+
+
+def test_cli_emu_and_analyze(tmp_path):
+    import pytest
+
+    pytest.importorskip("speakeasy")
+
+    sample = tmp_path / "sample.exe"
+    sample.write_bytes(build_pe())
+    cases = tmp_path / "cases"
+    runner = CliRunner()
+
+    for command in ("emu", "analyze"):
+        result = runner.invoke(
+            cli,
+            [command, str(sample), "--json", "--timeout", "2", "--cases-dir", str(cases)],
+        )
+        assert result.exit_code in (1, 2), result.output
+        payload = json.loads(result.output)
+        assert payload["artifacts"]["emulation"]["ran"] is True
+        assert payload["verdict"]["static_only"] is False

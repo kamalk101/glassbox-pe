@@ -6,15 +6,15 @@ GlassBox PE takes a single `.exe`, looks at what it *is* and what it *tries to d
 and produces a technique-level verdict where every claim is backed by an evidence
 event.
 
-> Status: **Phase 1 — static core**. Emulation, unpacking, and HTML reporting are
-> planned next. See `docs/PLAN.md`.
+> Status: **static core + basic Speakeasy emulation**. Unpacking and HTML
+> reporting are next. See `docs/PLAN.md`.
 
 ## Why
 
 Most student malware detectors output one number. GlassBox PE outputs:
 
 - what the sample can do (static capabilities)
-- what it tried to do (emulated behavior, coming in Phase 4)
+- what it tried to do (emulated behaviour)
 - how hard it tries to hide (analysis-resistance score)
 - which ATT&CK techniques are present
 - exactly which artifact supports each conclusion
@@ -29,26 +29,34 @@ Every finding carries an **evidence strength**:
 
 ## Safety
 
-This tool is **offline and non-executing** in its current form. It parses bytes and
-extracts strings. It never runs the sample. Emulation (Phase 4) runs code inside a
-CPU emulator, not on your host. Do not run real malware outside an isolated
-environment.
+The static path is **offline and non-executing**: it parses bytes and extracts
+strings. The emulation path runs the sample inside **Speakeasy/Unicorn**, a CPU
+emulator, in a subprocess — never natively on your host. Network calls are
+simulated. Do not run real malware outside an isolated environment.
 
 ## Install
 
 ```bash
 python3 -m venv .venv
-.venv/bin/pip install -e ".[dev]"
+.venv/bin/pip install -e ".[dev,emu]"
 ```
+
+On Python 3.12+ the emulation extra pins `setuptools<81` because Speakeasy's
+Unicorn 1.0.2 still imports `distutils` and `pkg_resources`.
 
 ## Usage
 
 ```bash
-# Static triage of one executable
+# Static triage only (fast, safe)
 glassbox scan suspicious.exe
+
+# Static + emulation
+glassbox emu suspicious.exe --timeout 60
+glassbox analyze suspicious.exe --timeout 60
 
 # Machine-readable output
 glassbox scan suspicious.exe --json
+glassbox emu suspicious.exe --json
 
 # List and inspect cases
 glassbox cases list
@@ -62,7 +70,9 @@ Each scan creates a case directory:
 
 ```
 cases/<sha256>/
-  case.json      # events, findings, verdict, hashes
+  case.json                       # events, findings, verdict, hashes
+  emulation/speakeasy-report.json # raw emulator report (after `emu`)
+  emulation/dropped/              # files written during emulation
 ```
 
 ## Current commands
@@ -70,13 +80,15 @@ cases/<sha256>/
 | Command | Status |
 |---|---|
 | `scan` | working (static) |
+| `emu` | working (Speakeasy: API events, dropped files, behaviour findings) |
+| `analyze` | working (static + emulation) |
 | `cases list/show/delete` | working |
 | `report --json` | working |
-| `rules list` | working |
+| `rules list/test` | working |
 | `unpack` | Phase 3 |
-| `emu` | Phase 4 |
-| `analyze --deep` | Phase 5 |
 | `report --html` | Phase 5 |
+
+Exit codes: `0` clean, `1` suspicious, `2` malicious, `3` inconclusive/error.
 
 ## Architecture
 
@@ -91,6 +103,9 @@ glassbox/
     strings.py    ASCII/UTF-16 strings + IOC extraction
     imports.py    suspicious API grouping
     rules.py      detection rules -> findings
+  emu/
+    speakeasy_backend.py  subprocess runner + report/dropped-file capture
+    apply.py              report -> attempted events + findings
   score.py        sneakiness + evidence-weighted verdict
   report/         terminal and JSON output
 ```
@@ -102,4 +117,11 @@ glassbox/
 ```
 
 Tests build a synthetic PE fixture in `tests/fixtures/make_pe.py`; no malware is
-required.
+required. Emulation tests are skipped if Speakeasy is not installed.
+
+## Current limitations
+
+- Emulated API arguments are logged, but pointers are not yet resolved to strings.
+- Child processes are not truly executed; dropped files are captured and queued.
+- Emulation can be evaded by anti-analysis samples (`GB-EMU-000` flags this).
+- Generic unpacking and HTML reports are not implemented yet.

@@ -56,7 +56,10 @@ def render_case(case: Case, console: Console | None = None, case_path: str | Non
         body = Text()
         body.append(f"{label}\n", style=f"bold {color}")
         body.append(f"score {verdict.score}/100   confidence {verdict.confidence:.2f}   ")
-        body.append(f"sneakiness {verdict.sneakiness}/100\n\n")
+        body.append(f"sneakiness {verdict.sneakiness}/100\n")
+        if verdict.sneakiness_reasons:
+            body.append("  " + ", ".join(verdict.sneakiness_reasons) + "\n")
+        body.append("\n")
         body.append(verdict.summary)
         console.print(Panel(body, title="verdict", border_style=color))
     else:

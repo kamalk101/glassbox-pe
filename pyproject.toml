@@ -19,6 +19,10 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]
+emu = [
+    "speakeasy-emulator>=1.5.11",
+    "setuptools<81",
+]
 
 [project.scripts]
 glassbox = "glassbox.cli:cli"

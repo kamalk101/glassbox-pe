@@ -154,6 +154,7 @@ class Verdict:
     techniques: list[str] = field(default_factory=list)
     next_steps: list[str] = field(default_factory=list)
     counterfactuals: list[dict[str, Any]] = field(default_factory=list)
+    sneakiness_reasons: list[str] = field(default_factory=list)
     static_only: bool = True
 
     def to_dict(self) -> dict[str, Any]:
@@ -162,6 +163,7 @@ class Verdict:
             "score": self.score,
             "confidence": round(self.confidence, 3),
             "sneakiness": self.sneakiness,
+            "sneakiness_reasons": self.sneakiness_reasons,
             "summary": self.summary,
             "techniques": self.techniques,
             "next_steps": self.next_steps,
@@ -180,8 +182,20 @@ class Verdict:
             techniques=raw.get("techniques") or [],
             next_steps=raw.get("next_steps") or [],
             counterfactuals=raw.get("counterfactuals") or [],
+            sneakiness_reasons=raw.get("sneakiness_reasons") or [],
             static_only=bool(raw.get("static_only", True)),
         )
+
+
+def _max_suffix(ids: list[str], prefix: str, default: int) -> int:
+    highest = 0
+    for value in ids:
+        if not value.startswith(prefix):
+            continue
+        suffix = value[len(prefix) :]
+        if suffix.isdigit():
+            highest = max(highest, int(suffix))
+    return highest or default
 
 
 @dataclass
@@ -303,6 +317,6 @@ class Case:
             artifacts=raw.get("artifacts") or {},
             errors=raw.get("errors") or [],
         )
-        case._event_counter = len(case.events)
-        case._finding_counter = len(case.findings)
+        case._event_counter = _max_suffix([e.id for e in case.events], "evt-", len(case.events))
+        case._finding_counter = _max_suffix([f.id for f in case.findings], "fnd-", len(case.findings))
         return case

@@ -8,7 +8,7 @@ CASES := /tmp/opencode/glassbox-cases
 
 install:
 	python3 -m venv .venv
-	$(PIP) install -e ".[dev]"
+	$(PIP) install -e ".[dev,emu]"
 
 test:
 	$(PY) -m pytest
