@@ -6,8 +6,9 @@ GlassBox PE takes a single `.exe`, looks at what it *is* and what it *tries to d
 and produces a technique-level verdict where every claim is backed by an evidence
 event.
 
-> Status: **static core + basic Speakeasy emulation + UPX unpacking**.
-> HTML reporting and deeper correlation are next. See `docs/PLAN.md`.
+> Status: **static core + basic Speakeasy emulation + UPX unpacking +
+> evidence-linked reports**. Deeper correlation and evaluation are next. See
+> `docs/PLAN.md`.
 
 ## Why
 
@@ -78,6 +79,8 @@ glassbox cases show <sha256>
 
 # Re-emit a stored report
 glassbox report <sha256> --json
+glassbox report <sha256> --html
+glassbox report <sha256> --html --output /tmp/case.html
 ```
 
 `unpack` detects UPX, ASPack, MPRESS, Themida, VMProtect, Enigma, Petite, and
@@ -94,6 +97,7 @@ cases/<sha256>/
   emulation/speakeasy-report.json # raw emulator report (after `emu`)
   emulation/dropped/              # files written during emulation
   unpacked/                       # unpacked child binary (after `unpack`)
+  report.html                     # standalone report (after `report --html`)
 ```
 
 ## Current commands
@@ -105,9 +109,9 @@ cases/<sha256>/
 | `analyze` | working (static + emulation) |
 | `cases list/show/delete` | working |
 | `report --json` | working |
+| `report --html` | working (standalone, offline, evidence-linked) |
 | `rules list/test` | working |
 | `unpack` | working (UPX only; detects other packers) |
-| `report --html` | Phase 5 |
 
 Exit codes: `0` clean, `1` suspicious, `2` malicious, `3` inconclusive/error.
 
@@ -132,8 +136,9 @@ glassbox/
   emu/
     speakeasy_backend.py  subprocess runner + report/dropped-file capture
     apply.py              report -> attempted events + findings
+  correlate.py    cross-source technique/evidence correlation
   score.py        sneakiness + evidence-weighted verdict
-  report/         terminal and JSON output
+  report/         terminal, JSON, and standalone HTML output
 ```
 
 ## Tests
@@ -152,4 +157,6 @@ required. Emulation tests are skipped if Speakeasy is not installed.
 - Emulation can be evaded by anti-analysis samples (`GB-EMU-000` flags this).
 - Only UPX unpacking is implemented; other packers are detected and marked
   unsupported. Child payloads are analyzed one level deep, not recursively.
-- HTML reports and full correlation are not implemented yet.
+- Correlation is a report-level summary: it shows where static capabilities and
+  attempted behaviour overlap, but it does not yet build a full graph database.
+- Emulation remains best-effort and can be evaded by anti-analysis samples.

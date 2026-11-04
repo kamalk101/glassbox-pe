@@ -30,6 +30,9 @@ glassbox = "glassbox.cli:cli"
 [tool.setuptools.packages.find]
 include = ["glassbox*"]
 
+[tool.setuptools.package-data]
+"glassbox.report" = ["templates/*.j2"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"

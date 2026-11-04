@@ -82,7 +82,7 @@ Every fact is an event:
 | **2** | Rule depth, sneakiness breakdown, YARA, capa, installer detection | part done (sneakiness reasons) |
 | **3** | Packer detection + UPX/generic unpack + before/after diff | done for UPX; common packers detected, generic unpack planned |
 | **4** | Speakeasy emulation: process/file/network/registry events, dropped files | basic done (API events, dropped files, behaviour findings) |
-| **5** | Correlation, technique-level verdicts, evidence graph, HTML report, differential | partial (joint verdict) |
+| **5** | Correlation, technique-level verdicts, evidence graph, HTML report, differential | done (correlation summary, evidence-linked HTML, unpack diff); graph UI later |
 | **6** | Corpus, evaluation (PR-AUC, per-technique recall, evasion), demo script | planned |
 | **7** | UI: case dashboard, evidence graph, timeline, diff viewer | optional |
 
@@ -132,6 +132,7 @@ glassbox emu sample.exe --timeout 60  # static + emulation
 glassbox analyze sample.exe           # alias for the deep path
 glassbox unpack packed.exe            # UPX unpack + child diff
 glassbox unpack packed.exe --json
+glassbox report <id> --html           # standalone evidence-linked report
 glassbox cases list
 glassbox cases show <id-or-prefix>
 glassbox rules list

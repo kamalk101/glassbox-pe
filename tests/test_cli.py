@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 from click.testing import CliRunner
 
@@ -60,6 +61,35 @@ def test_cli_rules_list():
     result = CliRunner().invoke(cli, ["rules", "list"])
     assert result.exit_code == 0
     assert "GB-PROC-001" in result.output
+
+
+def test_cli_report_html(tmp_path):
+    sample = tmp_path / "sample.exe"
+    sample.write_bytes(build_pe())
+    cases = tmp_path / "cases"
+    runner = CliRunner()
+
+    scan = runner.invoke(cli, ["scan", str(sample), "--json", "--cases-dir", str(cases)])
+    case_id = json.loads(scan.output)["case_id"]
+
+    report = runner.invoke(
+        cli,
+        ["report", case_id, "--html", "--cases-dir", str(cases)],
+    )
+
+    assert report.exit_code == 0, report.output
+    target = Path(report.output.strip())
+    assert target.is_file()
+    content = target.read_text(encoding="utf-8")
+    assert content.startswith("<!doctype html>")
+    assert case_id in content
+    assert "Evidence events" in content
+
+    both = runner.invoke(
+        cli,
+        ["report", case_id, "--html", "--json", "--cases-dir", str(cases)],
+    )
+    assert both.exit_code == 3
 
 
 def test_cli_unpack_not_packed(tmp_path):

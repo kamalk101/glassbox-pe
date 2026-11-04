@@ -209,6 +209,18 @@ def analyze_static(intake: Intake) -> Case:
         "imports": import_analysis.groups,
         "imports_all": sorted(info.all_import_functions()),
         "sections": [section.name for section in info.sections],
+        "sections_detail": [
+            {
+                "name": section.name,
+                "entropy": round(section.entropy, 2),
+                "virtual_size": section.virtual_size,
+                "raw_size": section.raw_size,
+                "executable": section.executable,
+                "writable": section.writable,
+                "wx": section.wx,
+            }
+            for section in info.sections
+        ],
         "packer": packer.to_dict(),
         "events": len(case.events),
         "findings": len(case.findings),

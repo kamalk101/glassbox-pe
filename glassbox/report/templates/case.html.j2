@@ -1,0 +1,544 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ case.file_name }} — GlassBox PE</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: #121a2e;
+      --panel-2: #17213a;
+      --text: #e8edf7;
+      --muted: #98a6bf;
+      --line: #26324d;
+      --cyan: #5ee7ff;
+      --green: #62e6a7;
+      --yellow: #ffd166;
+      --orange: #ff9f5a;
+      --red: #ff6b7a;
+      --magenta: #d38bff;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at 15% -10%, rgba(94, 231, 255, .16), transparent 36rem),
+        radial-gradient(circle at 90% 0%, rgba(211, 139, 255, .12), transparent 30rem),
+        var(--bg);
+      color: var(--text);
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      line-height: 1.55;
+    }
+    a { color: var(--cyan); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code, .mono { font-family: var(--mono); }
+    .wrap { max-width: 1180px; margin: 0 auto; padding: 0 1.25rem 4rem; }
+    .hero { padding: 3.5rem 0 1.5rem; }
+    .kicker {
+      color: var(--cyan);
+      font-size: .75rem;
+      font-weight: 700;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+    }
+    h1 { margin: .35rem 0 .25rem; font-size: clamp(2rem, 5vw, 3.6rem); line-height: 1.05; }
+    h2 { margin: 0 0 .9rem; font-size: 1.2rem; letter-spacing: .01em; }
+    h3 { margin: .5rem 0 .35rem; font-size: 1.05rem; }
+    .hash { color: var(--muted); font-family: var(--mono); font-size: .78rem; overflow-wrap: anywhere; }
+    .verdict {
+      display: flex;
+      align-items: baseline;
+      flex-wrap: wrap;
+      gap: .8rem 1.4rem;
+      margin: 1.4rem 0 .4rem;
+      padding: 1.1rem 1.25rem;
+      border: 1px solid var(--line);
+      border-left: 5px solid var(--muted);
+      border-radius: .75rem;
+      background: rgba(18, 26, 46, .86);
+    }
+    .verdict .label { font-size: 1.45rem; font-weight: 800; letter-spacing: .02em; }
+    .verdict .score { font-size: 1.15rem; font-weight: 700; }
+    .verdict-clean { border-left-color: var(--green); }
+    .verdict-clean .label { color: var(--green); }
+    .verdict-suspicious { border-left-color: var(--yellow); }
+    .verdict-suspicious .label { color: var(--yellow); }
+    .verdict-malicious { border-left-color: var(--red); }
+    .verdict-malicious .label { color: var(--red); }
+    .verdict-inconclusive { border-left-color: var(--magenta); }
+    .verdict-inconclusive .label { color: var(--magenta); }
+    .muted { color: var(--muted); }
+    .small { font-size: .86rem; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap: 1rem; }
+    .card {
+      margin-top: 1rem;
+      padding: 1.15rem 1.25rem;
+      border: 1px solid var(--line);
+      border-radius: .75rem;
+      background: linear-gradient(180deg, rgba(23, 33, 58, .92), rgba(18, 26, 46, .92));
+    }
+    .metric-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: .65rem; margin-top: .8rem; }
+    .metric { padding: .7rem .8rem; border: 1px solid var(--line); border-radius: .55rem; background: var(--panel-2); }
+    .metric b { display: block; font-size: 1.35rem; line-height: 1.1; }
+    .metric span { color: var(--muted); font-size: .8rem; }
+    .facts { width: 100%; border-collapse: collapse; }
+    .facts td { padding: .35rem 0; border-bottom: 1px solid rgba(38, 50, 77, .55); vertical-align: top; }
+    .facts td:first-child { width: 10rem; color: var(--muted); }
+    .facts tr:last-child td { border-bottom: 0; }
+    .table-wrap { overflow-x: auto; }
+    table.data { width: 100%; border-collapse: collapse; font-size: .88rem; }
+    table.data th, table.data td { padding: .48rem .55rem; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+    table.data th { color: var(--muted); font-size: .76rem; text-transform: uppercase; letter-spacing: .07em; }
+    table.data tr:target { background: rgba(94, 231, 255, .09); }
+    .chips { display: flex; flex-wrap: wrap; gap: .35rem; margin: .45rem 0; }
+    .chip {
+      display: inline-block;
+      padding: .16rem .45rem;
+      border: 1px solid var(--line);
+      border-radius: 99px;
+      background: var(--panel-2);
+      color: var(--text);
+      font-size: .76rem;
+    }
+    .badge {
+      display: inline-block;
+      padding: .1rem .42rem;
+      border-radius: .35rem;
+      border: 1px solid var(--line);
+      font-size: .72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+    .severity-info { color: var(--muted); }
+    .severity-low { color: var(--cyan); }
+    .severity-medium { color: var(--yellow); }
+    .severity-high { color: var(--orange); }
+    .severity-critical { color: var(--red); }
+    .badge.severity-info { border-color: var(--muted); }
+    .badge.severity-low { border-color: var(--cyan); }
+    .badge.severity-medium { border-color: var(--yellow); }
+    .badge.severity-high { border-color: var(--orange); }
+    .badge.severity-critical { border-color: var(--red); }
+    .source-static, .strength-static { color: var(--cyan); }
+    .source-emulation, .strength-attempted { color: var(--yellow); }
+    .source-vm, .strength-observed { color: var(--green); }
+    .finding {
+      margin-top: .9rem;
+      padding: 1rem 1.1rem;
+      border: 1px solid var(--line);
+      border-radius: .7rem;
+      background: var(--panel);
+      scroll-margin-top: 1rem;
+    }
+    .finding-head { display: flex; flex-wrap: wrap; gap: .45rem; align-items: center; }
+    .finding-head .id { color: var(--muted); font-family: var(--mono); font-size: .8rem; }
+    .finding-head h3 { flex-basis: 100%; margin: .15rem 0; }
+    .evidence-links { margin-top: .55rem; }
+    .evidence-chip {
+      display: inline-block;
+      margin: .15rem .2rem .15rem 0;
+      padding: .18rem .45rem;
+      border: 1px solid var(--line);
+      border-radius: .45rem;
+      background: var(--panel-2);
+      font-family: var(--mono);
+      font-size: .76rem;
+    }
+    .evidence-chip span { color: var(--muted); font-family: system-ui, sans-serif; }
+    .status { font-weight: 700; font-size: .82rem; }
+    .status-corroborated, .status-observed { color: var(--green); }
+    .status-static-only { color: var(--cyan); }
+    .status-attempted-only { color: var(--yellow); }
+    .status-unlinked { color: var(--muted); }
+    details { margin-top: .55rem; }
+    summary { cursor: pointer; color: var(--cyan); font-size: .84rem; }
+    pre {
+      margin: .55rem 0 0;
+      padding: .75rem;
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: .5rem;
+      background: #080d19;
+      color: #cfe0ff;
+      font-family: var(--mono);
+      font-size: .76rem;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+    .empty { color: var(--muted); font-style: italic; }
+    footer { margin-top: 2rem; color: var(--muted); font-size: .8rem; text-align: center; }
+    @media print {
+      body { background: #fff; color: #111; }
+      .card, .verdict, .finding { background: #fff; border-color: #bbb; }
+      a { color: #0645ad; }
+      .muted, .hash, .facts td:first-child { color: #555; }
+      pre { background: #f5f5f5; color: #111; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <div class="kicker">GlassBox PE · case report</div>
+    <h1>{{ case.file_name }}</h1>
+    <div class="hash">case {{ case.case_id }}<br>sha256 {{ case.hashes.sha256 }}</div>
+
+    {% if view.verdict %}
+    <div class="verdict verdict-{{ view.verdict.label }}">
+      <span class="label">{{ view.verdict.display }}</span>
+      <span class="score">score {{ view.verdict.score }}/100</span>
+      <span>confidence {{ view.verdict.confidence }}</span>
+      <span>sneakiness {{ view.verdict.sneakiness }}/100</span>
+      <span class="muted">{{ "static evidence only" if view.verdict.static_only else "static + emulated evidence" }}</span>
+    </div>
+    {% else %}
+    <div class="verdict verdict-inconclusive"><span class="label">NO VERDICT</span></div>
+    {% endif %}
+  </header>
+
+  <main>
+    <section class="card">
+      <h2>Assessment</h2>
+      {% if view.verdict %}
+        <p>{{ view.verdict.summary }}</p>
+        {% if view.verdict.sneakiness_reasons %}
+        <p class="small muted">Sneakiness signals: {{ view.verdict.sneakiness_reasons | join(", ") }}</p>
+        {% endif %}
+      {% else %}
+        <p class="empty">No verdict recorded for this case.</p>
+      {% endif %}
+
+      <div class="metric-row">
+        <div class="metric"><b>{{ view.correlation.findings_with_evidence }}/{{ view.correlation.findings }}</b><span>findings backed by evidence</span></div>
+        <div class="metric"><b>{{ view.correlation.events }}</b><span>evidence events</span></div>
+        <div class="metric"><b>{{ view.correlation.corroborated_techniques | length }}</b><span>corroborated techniques</span></div>
+        <div class="metric"><b>{{ view.size_human }}</b><span>file size</span></div>
+      </div>
+    </section>
+
+    <div class="grid">
+      <section class="card">
+        <h2>File facts</h2>
+        <table class="facts">
+          <tr><td>file</td><td>{{ case.file_name }}</td></tr>
+          <tr><td>type</td><td>{{ case.file_type }}</td></tr>
+          <tr><td>size</td><td>{{ view.size_human }} ({{ case.size }} bytes)</td></tr>
+          <tr><td>created</td><td>{{ case.created_at }}</td></tr>
+          <tr><td>md5</td><td class="mono small">{{ case.hashes.md5 }}</td></tr>
+          <tr><td>sha1</td><td class="mono small">{{ case.hashes.sha1 }}</td></tr>
+          <tr><td>sha256</td><td class="mono small">{{ case.hashes.sha256 }}</td></tr>
+        </table>
+      </section>
+
+      <section class="card">
+        <h2>Evidence strength</h2>
+        <table class="facts">
+          {% for strength in ["static", "attempted", "observed"] %}
+          <tr><td>{{ strength }}</td><td>{{ view.correlation.by_strength.get(strength, 0) }} event(s)</td></tr>
+          {% endfor %}
+          <tr><td>sources</td><td>{% for source, count in view.correlation.by_source.items() %}<span class="chip">{{ source }}: {{ count }}</span>{% endfor %}</td></tr>
+          <tr><td>coverage</td><td>{{ "%.0f"|format(view.correlation.coverage * 100) }}% of findings link to a recorded event</td></tr>
+        </table>
+        {% if view.correlation.findings_without_evidence %}
+        <p class="small severity-high">Unlinked findings: {{ view.correlation.findings_without_evidence | join(", ") }}</p>
+        {% endif %}
+      </section>
+    </div>
+
+    <section class="card">
+      <h2>Correlation and ATT&amp;CK techniques</h2>
+      {% if view.correlation.corroborated_techniques %}
+      <p><span class="status status-corroborated">Corroborated</span>
+        {% for technique in view.correlation.corroborated_techniques %}<span class="chip">{{ technique }}</span>{% endfor %}
+      </p>
+      {% endif %}
+      {% if view.correlation.static_only_techniques %}
+      <p><span class="status status-static-only">Static capability</span>
+        {% for technique in view.correlation.static_only_techniques %}<span class="chip">{{ technique }}</span>{% endfor %}
+      </p>
+      {% endif %}
+      {% if view.correlation.attempted_only_techniques %}
+      <p><span class="status status-attempted-only">Attempted during emulation</span>
+        {% for technique in view.correlation.attempted_only_techniques %}<span class="chip">{{ technique }}</span>{% endfor %}
+      </p>
+      {% endif %}
+
+      {% if view.correlation.techniques %}
+      <div class="table-wrap">
+        <table class="data">
+          <thead><tr><th>Technique</th><th>Status</th><th>Findings</th><th>Evidence</th></tr></thead>
+          <tbody>
+          {% for row in view.correlation.techniques %}
+            <tr>
+              <td class="mono">{{ row.technique }}</td>
+              <td><span class="status status-{{ row.status | replace(' ', '-') }}">{{ row.status }}</span></td>
+              <td>{% for finding_id in row.findings %}<a class="chip" href="#{{ finding_id }}">{{ finding_id }}</a>{% endfor %}</td>
+              <td>{% for event_id in row.event_ids %}<a class="chip" href="#{{ event_id }}">{{ event_id }}</a>{% endfor %}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+        <p class="empty">No ATT&amp;CK techniques were mapped.</p>
+      {% endif %}
+    </section>
+
+    {% if view.unpack %}
+    <section class="card">
+      <h2>Unpacking and differential</h2>
+      <table class="facts">
+        <tr><td>status</td><td>{{ view.unpack.status }}</td></tr>
+        <tr><td>packer</td><td>{{ view.unpack.packer.get("name") or "unknown" }} ({{ view.unpack.packer.get("confidence", "none") }})</td></tr>
+        <tr><td>method</td><td>{{ view.unpack.method }}</td></tr>
+        <tr><td>tool</td><td class="mono small">{{ view.unpack.tool }}</td></tr>
+        <tr><td>output</td><td class="mono small">{{ view.unpack.output_path }}</td></tr>
+        {% if view.unpack.child_case_id %}<tr><td>child case</td><td class="mono small">{{ view.unpack.child_case_id }}</td></tr>{% endif %}
+        {% if view.unpack.error %}<tr><td>error</td><td class="severity-high">{{ view.unpack.error }}</td></tr>{% endif %}
+      </table>
+      {% if view.unpack.packer.get("evidence") %}
+      <div class="chips">
+        {% for item in view.unpack.packer.get("evidence") %}<span class="chip">{{ item }}</span>{% endfor %}
+      </div>
+      {% endif %}
+
+      {% if view.unpack.diff %}
+      <div class="metric-row">
+        <div class="metric"><b>{{ view.unpack.new_imports | length }}</b><span>new imports</span></div>
+        <div class="metric"><b>{{ view.unpack.new_findings | length }}</b><span>new findings</span></div>
+        <div class="metric"><b>{{ view.unpack.new_sections | length }}</b><span>new sections</span></div>
+        <div class="metric"><b>{{ view.unpack.diff.get("parent_verdict") }} → {{ view.unpack.diff.get("child_verdict") }}</b><span>verdict change</span></div>
+      </div>
+      {% if view.unpack.new_findings %}
+      <p>New findings: {% for rule_id in view.unpack.new_findings %}<span class="chip">{{ rule_id }}</span>{% endfor %}</p>
+      {% endif %}
+      {% if view.unpack.new_imports %}
+      <details>
+        <summary>New imports ({{ view.unpack.new_imports | length }})</summary>
+        <div class="chips">
+          {% for name in view.unpack.new_imports[:120] %}<span class="chip mono">{{ name }}</span>{% endfor %}
+        </div>
+        {% if view.unpack.new_imports | length > 120 %}<p class="small muted">…and {{ view.unpack.new_imports | length - 120 }} more.</p>{% endif %}
+      </details>
+      {% endif %}
+      {% if view.unpack.resolved_findings %}
+      <p>Resolved findings: {% for rule_id in view.unpack.resolved_findings %}<span class="chip">{{ rule_id }}</span>{% endfor %}</p>
+      {% endif %}
+      <details><summary>Raw diff</summary><pre>{{ view.unpack.diff_json }}</pre></details>
+      {% endif %}
+    </section>
+    {% endif %}
+
+    <section class="card">
+      <h2>Findings</h2>
+      {% if view.findings %}
+        {% for finding in view.findings %}
+        <article class="finding severity-{{ finding.severity }}" id="{{ finding.id }}">
+          <div class="finding-head">
+            <span class="id">{{ finding.id }}</span>
+            <span class="badge severity-{{ finding.severity }}">{{ finding.severity }}</span>
+            <span class="badge source-{{ finding.source }}">{{ finding.source }}</span>
+            <span class="muted small">{{ finding.rule_id }} · confidence {{ finding.confidence }}</span>
+            <h3>{{ finding.title }}</h3>
+          </div>
+          <p>{{ finding.description }}</p>
+          {% if finding.techniques %}
+          <div class="chips">{% for technique in finding.techniques %}<span class="chip">{{ technique }}</span>{% endfor %}</div>
+          {% endif %}
+          <div class="evidence-links">
+            <span class="muted small">Evidence:</span>
+            {% for event in finding.evidence %}
+            <a class="evidence-chip" href="#{{ event.id }}">{{ event.id }} <span>{{ event.action }}</span></a>
+            {% else %}
+            <span class="empty">no linked evidence</span>
+            {% endfor %}
+            {% for event_id in finding.missing_evidence %}<span class="evidence-chip severity-high">{{ event_id }} (missing)</span>{% endfor %}
+          </div>
+          {% if finding.data_json %}
+          <details><summary>Finding data</summary><pre>{{ finding.data_json }}</pre></details>
+          {% endif %}
+        </article>
+        {% endfor %}
+      {% else %}
+        <p class="empty">No findings.</p>
+      {% endif %}
+    </section>
+
+    <section class="card">
+      <h2>Evidence events</h2>
+      {% if view.events %}
+      <div class="table-wrap">
+        <table class="data">
+          <thead><tr><th>ID</th><th>Strength</th><th>Source</th><th>Category</th><th>Action</th><th>Target</th><th>Technique</th><th>Data</th></tr></thead>
+          <tbody>
+          {% for event in view.events %}
+            <tr id="{{ event.id }}">
+              <td class="mono">{{ event.id }}</td>
+              <td><span class="badge strength-{{ event.strength }}">{{ event.strength }}</span></td>
+              <td>{{ event.source }}</td>
+              <td>{{ event.category }}</td>
+              <td class="mono">{{ event.action }}</td>
+              <td>{{ event.target }}</td>
+              <td class="mono">{{ event.technique or "-" }}</td>
+              <td>{% if event.data_json %}<details><summary>data</summary><pre>{{ event.data_json }}</pre></details>{% else %}-{% endif %}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+        <p class="empty">No evidence events.</p>
+      {% endif %}
+    </section>
+
+    <div class="grid">
+      <section class="card">
+        <h2>Static profile</h2>
+        {% if view.pe %}
+        <table class="facts">
+          <tr><td>machine</td><td>{{ view.pe.get("machine", "?") }}</td></tr>
+          <tr><td>subsystem</td><td>{{ view.pe.get("subsystem", "?") }}</td></tr>
+          <tr><td>entry point</td><td class="mono">{{ view.pe.get("entry_point", "?") }}</td></tr>
+          <tr><td>image base</td><td class="mono">{{ view.pe.get("image_base", "?") }}</td></tr>
+          <tr><td>sections</td><td>{{ view.pe.get("sections", "?") }}</td></tr>
+          <tr><td>imports</td><td>{{ view.pe.get("imports", "?") }} function(s) from {{ view.pe.get("import_dlls", "?") }} DLL(s)</td></tr>
+          <tr><td>signed</td><td>{{ view.pe.get("signed", "?") }}</td></tr>
+          <tr><td>.NET</td><td>{{ view.pe.get("dotnet", "?") }}</td></tr>
+          <tr><td>timestamp</td><td>{{ view.pe.get("timestamp") or "unknown" }}</td></tr>
+          <tr><td>overlay</td><td>{{ view.pe.get("overlay_size", 0) }} bytes</td></tr>
+          {% if view.pe.get("pdb") %}<tr><td>PDB</td><td class="mono small">{{ view.pe.get("pdb") }}</td></tr>{% endif %}
+        </table>
+        {% else %}
+        <p class="empty">No static artifact.</p>
+        {% endif %}
+
+        <h3>Packer</h3>
+        {% if view.packer.get("name") %}
+          <p><b>{{ view.packer.get("name") }}</b> <span class="muted">({{ view.packer.get("confidence") }})</span></p>
+          <div class="chips">{% for item in view.packer.get("evidence") or [] %}<span class="chip">{{ item }}</span>{% endfor %}</div>
+        {% else %}
+          <p class="empty">No known packer markers found.</p>
+        {% endif %}
+      </section>
+
+      <section class="card">
+        <h2>Sections</h2>
+        {% if view.sections %}
+        <div class="table-wrap">
+          <table class="data">
+            <thead><tr><th>Name</th><th>Entropy</th><th>Virtual</th><th>Raw</th><th>Flags</th></tr></thead>
+            <tbody>
+            {% for section in view.sections %}
+              <tr>
+                <td class="mono">{{ section.name }}</td>
+                <td>{{ section.entropy }}</td>
+                <td>{{ section.virtual_size }}</td>
+                <td>{{ section.raw_size }}</td>
+                <td class="small">{% if section.executable %}X{% endif %}{% if section.writable %}W{% endif %}{% if section.wx %} <span class="severity-high">(W+X)</span>{% endif %}</td>
+              </tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+          <p class="empty">No section artifact.</p>
+        {% endif %}
+      </section>
+    </div>
+
+    <section class="card">
+      <h2>Import behaviours</h2>
+      {% if view.import_groups %}
+        {% for behaviour, functions in view.import_groups.items() %}
+        <div>
+          <b>{{ behaviour | replace("_", " ") }}</b> <span class="muted small">{{ functions | length }}</span>
+          <div class="chips">{% for function in functions[:40] %}<span class="chip mono">{{ function }}</span>{% endfor %}</div>
+          {% if functions | length > 40 %}<p class="small muted">…and {{ functions | length - 40 }} more.</p>{% endif %}
+        </div>
+        {% endfor %}
+      {% else %}
+        <p class="empty">No behaviour-mapped imports.</p>
+      {% endif %}
+    </section>
+
+    <section class="card">
+      <h2>Emulation</h2>
+      {% if view.emulation.get("ran") %}
+      <div class="metric-row">
+        <div class="metric"><b>{{ view.emulation.get("api_calls", 0) }}</b><span>API calls</span></div>
+        <div class="metric"><b>{{ view.emulation.get("dynamic_segments", 0) }}</b><span>dynamic code segments</span></div>
+        <div class="metric"><b>{{ (view.emulation.get("dropped_files") or []) | length }}</b><span>dropped files</span></div>
+      </div>
+      <table class="facts">
+        <tr><td>version</td><td>{{ view.emulation.get("version") or "?" }}</td></tr>
+        <tr><td>arch / OS</td><td>{{ view.emulation.get("arch") or "?" }} / {{ view.emulation.get("os") or "?" }}</td></tr>
+        <tr><td>runtime</td><td>{{ view.emulation.get("runtime") or "?" }}</td></tr>
+        <tr><td>report</td><td class="mono small">{{ view.emulation.get("report_path") or "-" }}</td></tr>
+        {% if view.emulation.get("error") %}<tr><td>error</td><td class="severity-high">{{ view.emulation.get("error") }}</td></tr>{% endif %}
+      </table>
+      {% if view.emulation.get("behaviours") %}
+      <p>Behaviours: {% for name, count in view.emulation.get("behaviours").items() %}<span class="chip">{{ name }}: {{ count }}</span>{% endfor %}</p>
+      {% endif %}
+      {% if view.emulation.get("dropped_files") %}
+      <div class="table-wrap">
+        <table class="data">
+          <thead><tr><th>Dropped path</th><th>Size</th><th>SHA256</th></tr></thead>
+          <tbody>
+          {% for dropped in view.emulation.get("dropped_files") %}
+            <tr><td class="mono">{{ dropped.get("path", "?") }}</td><td>{{ dropped.get("size", "?") }}</td><td class="mono small">{{ dropped.get("sha256", "?") }}</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
+      {% else %}
+        <p class="empty">Emulation was not run for this case.</p>
+      {% endif %}
+    </section>
+
+    {% if view.verdict and view.verdict.counterfactuals %}
+    <section class="card">
+      <h2>Counterfactuals</h2>
+      <div class="table-wrap">
+        <table class="data">
+          <thead><tr><th>Finding</th><th>Remove</th><th>Risk without</th><th>Delta</th></tr></thead>
+          <tbody>
+          {% for item in view.verdict.counterfactuals %}
+            <tr>
+              <td class="mono">{{ item.get("finding_id", "") }}</td>
+              <td>{{ item.get("title", "") }}</td>
+              <td>{{ item.get("risk_without", item.get("score_without", "")) }}</td>
+              <td>-{{ item.get("delta", "") }}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+    {% endif %}
+
+    {% if view.verdict and view.verdict.next_steps %}
+    <section class="card">
+      <h2>Next steps</h2>
+      <ul>{% for step in view.verdict.next_steps %}<li>{{ step }}</li>{% endfor %}</ul>
+    </section>
+    {% endif %}
+
+    {% if view.errors %}
+    <section class="card">
+      <h2>Errors and limitations</h2>
+      <ul>{% for error in view.errors %}<li class="severity-high">{{ error }}</li>{% endfor %}</ul>
+    </section>
+    {% endif %}
+  </main>
+
+  <footer>
+    Generated {{ generated_at }} by GlassBox PE {{ case.tool_version }} · evidence supports conclusions, not certainty.
+  </footer>
+</div>
+</body>
+</html>

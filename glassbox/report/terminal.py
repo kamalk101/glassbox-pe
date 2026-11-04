@@ -9,6 +9,7 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
+from ..correlate import correlate
 from ..schema import Case, Severity, VerdictLabel
 from ..utils import human_size
 
@@ -123,6 +124,13 @@ def render_case(case: Case, console: Console | None = None, case_path: str | Non
         if len(case.events) > 14:
             evidence.add_row("...", "", "", "", f"{len(case.events) - 14} more")
         console.print(evidence)
+
+    if case.findings:
+        correlation = correlate(case)
+        linked = f"{correlation['findings_with_evidence']}/{correlation['findings']} findings linked to {correlation['events']} event(s)"
+        if correlation["corroborated_techniques"]:
+            linked += " · corroborated: " + ", ".join(correlation["corroborated_techniques"])
+        console.print("[bold]correlation[/bold] " + _cell(linked))
 
     if verdict and verdict.counterfactuals:
         cf = Table(title="counterfactuals (what if?)", box=box.SIMPLE_HEAD)

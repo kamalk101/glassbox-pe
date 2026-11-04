@@ -15,7 +15,7 @@ from .cases import CaseStore
 from .config import resolve_cases_dir
 from .emu import EmulationOutcome, apply_emulation, run_emulation
 from .ingest import ingest
-from .report import render_case, render_json, render_quiet
+from .report import render_case, render_html, render_json, render_quiet
 from .schema import TOOL_VERSION, Case, Category, Severity, Source, VerdictLabel
 from .static.rules import RULE_CATALOG
 from .unpack import diff_cases, unpack_sample
@@ -198,9 +198,17 @@ def delete_case(ctx: click.Context, case_id: str, cases_dir: str | None, yes: bo
 @click.argument("case_id")
 @click.option("--cases-dir", default=None)
 @click.option("--json", "as_json", is_flag=True)
-@click.option("--html", is_flag=True)
+@click.option("--html", is_flag=True, help="Write a standalone HTML report.")
+@click.option("--output", type=click.Path(dir_okay=False, path_type=Path), default=None)
 @click.pass_context
-def report(ctx: click.Context, case_id: str, cases_dir: str | None, as_json: bool, html: bool) -> None:
+def report(
+    ctx: click.Context,
+    case_id: str,
+    cases_dir: str | None,
+    as_json: bool,
+    html: bool,
+    output: Path | None,
+) -> None:
     """Re-emit a stored report."""
     store = CaseStore(resolve_cases_dir(cases_dir))
     try:
@@ -208,10 +216,15 @@ def report(ctx: click.Context, case_id: str, cases_dir: str | None, as_json: boo
     except (FileNotFoundError, ValueError) as exc:
         click.echo(f"error: {exc}", err=True)
         ctx.exit(3)
-    if html:
-        click.echo("HTML reporting is planned for Phase 5.", err=True)
+    if html and as_json:
+        click.echo("error: choose --html or --json, not both", err=True)
         ctx.exit(3)
-    if as_json:
+    if html:
+        target = (output or (store.case_dir(case.case_id) / "report.html")).expanduser()
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(render_html(case), encoding="utf-8")
+        click.echo(str(target))
+    elif as_json:
         click.echo(render_json(case))
     else:
         render_case(case, case_path=str(store.case_path(case.case_id)))
