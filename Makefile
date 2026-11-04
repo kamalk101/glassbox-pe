@@ -1,4 +1,4 @@
-.PHONY: install test sample demo clean
+.PHONY: install test sample demo upx clean
 
 PY := .venv/bin/python
 PIP := .venv/bin/pip
@@ -19,6 +19,9 @@ sample:
 
 demo: sample
 	-$(GLASSBOX) scan $(SAMPLE) --cases-dir $(CASES) --force
+
+upx:
+	sh scripts/fetch_upx.sh
 
 clean:
 	rm -rf cases .pytest_cache build dist *.egg-info

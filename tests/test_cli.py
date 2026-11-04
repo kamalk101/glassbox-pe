@@ -3,7 +3,7 @@ import json
 from click.testing import CliRunner
 
 from glassbox.cli import cli
-from tests.fixtures.make_pe import build_pe
+from tests.fixtures.make_pe import DEFAULT_IMPORTS, build_pe
 
 
 def test_cli_scan_json(tmp_path):
@@ -62,13 +62,70 @@ def test_cli_rules_list():
     assert "GB-PROC-001" in result.output
 
 
-def test_cli_stub_commands(tmp_path):
+def test_cli_unpack_not_packed(tmp_path):
     sample = tmp_path / "sample.exe"
     sample.write_bytes(build_pe())
     runner = CliRunner()
 
     result = runner.invoke(cli, ["unpack", str(sample)])
-    assert result.exit_code == 3
+
+    assert result.exit_code == 0
+    assert "no known packer" in (result.output + getattr(result, "stderr", ""))
+
+
+def test_cli_unpack_upx_with_fake_tool(tmp_path):
+    packed = tmp_path / "packed.exe"
+    packed.write_bytes(build_pe(packed=True))
+    unpacked_source = tmp_path / "unpacked-source.exe"
+    unpacked_source.write_bytes(
+        build_pe(
+            imports=DEFAULT_IMPORTS + ["SetWindowsHookExA"],
+            strings=["hello from the unpacked payload"],
+        )
+    )
+
+    fake = tmp_path / "fake-upx"
+    fake.write_text(
+        """#!/bin/sh
+while [ $# -gt 0 ]; do
+  if [ "$1" = "-o" ]; then out="$2"; shift 2; else shift; fi
+done
+cp "$FAKE_UNPACKED" "$out"
+""",
+        encoding="utf-8",
+    )
+    fake.chmod(0o755)
+
+    cases = tmp_path / "cases"
+    runner = CliRunner()
+    env = {"GLASSBOX_UPX": str(fake), "FAKE_UNPACKED": str(unpacked_source)}
+
+    result = runner.invoke(
+        cli,
+        ["unpack", str(packed), "--json", "--cases-dir", str(cases)],
+        env=env,
+    )
+
+    assert result.exit_code in (1, 2), result.output
+    payload = json.loads(result.output)
+    unpack = payload["artifacts"]["unpack"]
+    assert unpack["status"] == "unpacked"
+    assert unpack["method"] == "upx"
+    assert "SetWindowsHookExA" in unpack["diff"]["new_imports"]
+    assert "GB-UNP-001" in {finding["rule_id"] for finding in payload["findings"]}
+    assert (cases / unpack["diff"]["child_case_id"] / "case.json").is_file()
+    assert (cases / payload["case_id"] / "unpacked").is_dir()
+
+    # Re-running the same unpack must replace, not duplicate, its event/finding.
+    again = runner.invoke(
+        cli,
+        ["unpack", str(packed), "--json", "--cases-dir", str(cases)],
+        env=env,
+    )
+    assert again.exit_code in (1, 2), again.output
+    repeated = json.loads(again.output)
+    assert [f["rule_id"] for f in repeated["findings"]].count("GB-UNP-001") == 1
+    assert [e["action"] for e in repeated["events"]].count("unpacked") == 1
 
 
 def test_cli_emu_and_analyze(tmp_path):

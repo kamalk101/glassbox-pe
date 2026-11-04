@@ -65,6 +65,27 @@ def render_case(case: Case, console: Console | None = None, case_path: str | Non
     else:
         console.print(Panel("no verdict available", border_style="yellow"))
 
+    unpack = case.artifacts.get("unpack")
+    if isinstance(unpack, dict):
+        table = Table(title="unpack", box=box.SIMPLE, show_header=False, pad_edge=False)
+        table.add_column("field", style="dim", width=14)
+        table.add_column("value")
+        packer = unpack.get("packer") or {}
+        table.add_row("status", _cell(unpack.get("status", "?")))
+        table.add_row(
+            "packer",
+            _cell(f"{packer.get('name') or 'unknown'} ({packer.get('confidence', 'none')})"),
+        )
+        table.add_row("method", _cell(unpack.get("method") or "-"))
+        table.add_row("output", _cell(unpack.get("output_path") or "-"))
+        diff = unpack.get("diff") or {}
+        if diff:
+            table.add_row("child case", _cell(diff.get("child_case_id") or "-"))
+            table.add_row("verdict", _cell(f"{diff.get('parent_verdict')} -> {diff.get('child_verdict')}"))
+            table.add_row("new imports", str(len(diff.get("new_imports") or [])))
+            table.add_row("new findings", _cell(", ".join(diff.get("new_findings") or []) or "-"))
+        console.print(table)
+
     if case.findings:
         findings = Table(title="findings", box=box.SIMPLE_HEAD, show_lines=False)
         findings.add_column("id", style="dim", no_wrap=True)

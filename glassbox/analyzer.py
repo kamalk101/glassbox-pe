@@ -6,6 +6,7 @@ from . import score
 from .ingest import Intake
 from .schema import Case, Category, Source, Strength
 from .static import imports as imports_mod
+from .static import packer as packer_mod
 from .static import pe as pe_mod
 from .static import rules as rules_mod
 from .static import strings as strings_mod
@@ -37,6 +38,7 @@ def analyze_static(intake: Intake) -> Case:
     info = pe_mod.parse_pe(data)
     strings = strings_mod.extract(data)
     import_analysis = imports_mod.analyze(info.imports, info.ordinal_imports)
+    packer = packer_mod.detect(data, info)
 
     event_index: dict[str, str] = {}
 
@@ -205,6 +207,9 @@ def analyze_static(intake: Intake) -> Case:
         },
         "iocs": {key: len(value) for key, value in strings.iocs.items()},
         "imports": import_analysis.groups,
+        "imports_all": sorted(info.all_import_functions()),
+        "sections": [section.name for section in info.sections],
+        "packer": packer.to_dict(),
         "events": len(case.events),
         "findings": len(case.findings),
     }
