@@ -148,6 +148,11 @@ def test_evaluate_corpus_emulation_mode(tmp_path):
     assert result["mode"] == "emulation"
     assert result["emulation"]["ran"] == 1
     assert result["emulation"]["api_calls"] == 1
+    assert result["emulation"]["category_events"]["pe"] == 1
+    assert result["emulation"]["category_events"]["process"] == 1
+    assert result["emulation"]["behaviours"]["process_injection"] == 1
+    categories = result["samples"][0]["emulation"]["categories"]
+    assert {"pe", "process"} <= set(categories)
     assert "process" in result["samples"][0]["emulation"]["categories"]
     assert result["samples"][0]["predicted"] in {"suspicious", "malicious"}
     assert result["samples"][0]["static_score"] < result["samples"][0]["score"]

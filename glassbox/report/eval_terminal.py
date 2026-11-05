@@ -116,9 +116,20 @@ def render_evaluation(result: dict) -> None:
         emu_table.add_row("failed", str(emulation.get("failed", 0)))
         emu_table.add_row("API calls", str(emulation.get("api_calls", 0)))
         emu_table.add_row("samples with API events", str(emulation.get("samples_with_api_events", 0)))
+        categories = emulation.get("categories") or {}
         emu_table.add_row(
-            "categories",
-            escape(", ".join(sorted((emulation.get("categories") or {}).keys())) or "-"),
+            "samples with ≥1 event",
+            escape(", ".join(f"{name}:{count}" for name, count in sorted(categories.items())) or "-"),
+        )
+        category_events = emulation.get("category_events") or {}
+        emu_table.add_row(
+            "event counts",
+            escape(", ".join(f"{name}:{count}" for name, count in sorted(category_events.items())) or "-"),
+        )
+        behaviours = emulation.get("behaviours") or {}
+        emu_table.add_row(
+            "behaviour counts",
+            escape(", ".join(f"{name}:{count}" for name, count in sorted(behaviours.items())) or "-"),
         )
         console.print(emu_table)
 

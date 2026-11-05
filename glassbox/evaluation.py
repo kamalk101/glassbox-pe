@@ -301,6 +301,8 @@ def evaluate_corpus(
         "api_calls": 0,
         "samples_with_api_events": 0,
         "categories": {},
+        "category_events": {},
+        "behaviours": {},
     }
 
     for entry in entries:
@@ -362,6 +364,16 @@ def evaluate_corpus(
                     emulation_summary["api_calls"] += emulation_info["api_calls"]
                     if emulation_info["api_calls"]:
                         emulation_summary["samples_with_api_events"] += 1
+                    for event in case.events:
+                        if event.source is Source.EMULATION:
+                            category_name = event.category.value
+                            emulation_summary["category_events"][category_name] = (
+                                emulation_summary["category_events"].get(category_name, 0) + 1
+                            )
+                    for behaviour, count in (emu_artifacts.get("behaviours") or {}).items():
+                        emulation_summary["behaviours"][behaviour] = (
+                            emulation_summary["behaviours"].get(behaviour, 0) + int(count)
+                        )
                     for category in categories:
                         emulation_summary["categories"][category] = (
                             emulation_summary["categories"].get(category, 0) + 1

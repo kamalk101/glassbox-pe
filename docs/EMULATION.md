@@ -1,5 +1,8 @@
 # Speakeasy emulation notes
 
+Measured coverage on local benign software is documented in
+`docs/EMULATION_COVERAGE.md`.
+
 GlassBox PE runs Windows binaries only in user-mode emulation (Speakeasy on
 Linux). It never executes a sample natively. The emulation path is best for
 turning static capabilities into `attempted` behaviour and for discovering

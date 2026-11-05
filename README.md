@@ -270,7 +270,7 @@ ablation harness.
 - .NET analysis reads CLR metadata at the PE level; it does not decompile or
   run IL. Findings describe capabilities and markers, not proof of intent. Only
   one .NET control is currently available in the extended corpus.
-- Emulated API arguments are logged; pointers into the sample image are resolved to strings. Heap/stack pointers are still unresolved; see `docs/EMULATION.md`.
+- Emulated API arguments are logged; pointers into the sample image are resolved to strings. Heap/stack pointers are still unresolved — see `docs/EMULATION.md` and `docs/EMULATION_COVERAGE.md`.
 
 - Child processes are not truly executed; dropped files are captured and queued.
 - Emulation is best-effort and can be evaded by anti-analysis samples
