@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import click
@@ -14,8 +15,10 @@ from .analyzer import analyze_static
 from .cases import CaseStore
 from .config import resolve_cases_dir
 from .emu import EmulationOutcome, apply_emulation, run_emulation
+from .evaluation import evaluate_corpus
 from .ingest import ingest
 from .report import render_case, render_html, render_json, render_quiet
+from .report.eval_terminal import render_evaluation
 from .schema import TOOL_VERSION, Case, Category, Severity, Source, VerdictLabel
 from .static.rules import RULE_CATALOG
 from .unpack import diff_cases, unpack_sample
@@ -420,6 +423,40 @@ def emu(
         click.echo(f"emulation failed: {getattr(outcome, 'error', 'unknown error')}", err=True)
         ctx.exit(3)
     ctx.exit(_exit_code(case))
+
+
+@cli.command("eval")
+@click.argument("corpus", type=click.Path(exists=True, path_type=Path))
+@click.option("--json", "as_json", is_flag=True, help="Print the evaluation result as JSON.")
+@click.option("--output", type=click.Path(dir_okay=False, path_type=Path), default=None)
+@click.pass_context
+def evaluate_command(
+    ctx: click.Context,
+    corpus: Path,
+    as_json: bool,
+    output: Path | None,
+) -> None:
+    """Evaluate static triage against a labelled corpus manifest."""
+    try:
+        result = evaluate_corpus(corpus)
+    except (OSError, ValueError) as exc:
+        click.echo(f"error: {exc}", err=True)
+        ctx.exit(3)
+
+    payload = json.dumps(result, indent=2)
+    if output:
+        target = output.expanduser()
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(payload, encoding="utf-8")
+        if not as_json:
+            click.echo(f"wrote {target}")
+
+    if as_json:
+        click.echo(payload)
+    else:
+        render_evaluation(result)
+    if result["metrics"]["samples"] == 0:
+        ctx.exit(3)
 
 
 @cli.group()

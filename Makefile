@@ -1,4 +1,4 @@
-.PHONY: install test sample demo upx clean
+.PHONY: install test sample demo upx corpus eval clean
 
 PY := .venv/bin/python
 PIP := .venv/bin/pip
@@ -17,12 +17,18 @@ sample:
 	mkdir -p /tmp/opencode
 	$(PY) tests/fixtures/make_pe.py $(SAMPLE) --packed
 
-demo: sample
-	-$(GLASSBOX) scan $(SAMPLE) --cases-dir $(CASES) --force
+demo:
+	sh scripts/demo.sh
 
 upx:
 	sh scripts/fetch_upx.sh
 
+corpus:
+	$(PY) scripts/make_corpus.py
+
+eval: corpus
+	$(GLASSBOX) eval corpus/demo
+
 clean:
-	rm -rf cases .pytest_cache build dist *.egg-info
+	rm -rf cases reports corpus .pytest_cache build dist *.egg-info
 	find . -name __pycache__ -type d -prune -exec rm -rf {} +

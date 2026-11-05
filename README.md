@@ -7,8 +7,8 @@ and produces a technique-level verdict where every claim is backed by an evidenc
 event.
 
 > Status: **static core + basic Speakeasy emulation + UPX unpacking +
-> evidence-linked reports**. Deeper correlation and evaluation are next. See
-> `docs/PLAN.md`.
+> evidence-linked reports + labelled-corpus evaluation**. Real-corpus
+> evaluation and the UI are next. See `docs/PLAN.md`.
 
 ## Why
 
@@ -81,6 +81,14 @@ glassbox cases show <sha256>
 glassbox report <sha256> --json
 glassbox report <sha256> --html
 glassbox report <sha256> --html --output /tmp/case.html
+
+# Build the synthetic demo corpus and evaluate static triage
+make corpus
+glassbox eval corpus/demo
+glassbox eval corpus/demo --json
+
+# One-shot class demo: static scan + HTML report + corpus metrics
+make demo
 ```
 
 `unpack` detects UPX, ASPack, MPRESS, Themida, VMProtect, Enigma, Petite, and
@@ -88,6 +96,24 @@ NsPack by section names/markers, plus a high-entropy/low-import heuristic. UPX
 is unpacked automatically; other packers are reported as unsupported. The
 unpacked child gets its own case, a before/after diff (sections, imports,
 findings, score), and a `GB-UNP-001` finding when hidden capabilities appear.
+
+`glassbox eval` reads a corpus directory containing `manifest.json` (or a
+manifest path directly) and reports 3-class accuracy, per-class precision/recall,
+binary precision/recall/F1, PR-AUC, a confusion matrix, and technique-level
+recall. A manifest entry looks like:
+
+```json
+{
+  "path": "suspicious-injection.exe",
+  "label": "suspicious",
+  "techniques": ["T1055"],
+  "family": "injector",
+  "notes": "process-injection capability"
+}
+```
+
+`scripts/make_corpus.py` builds a six-sample synthetic corpus for demos and
+regression checks. It is intentionally small and not a real-world benchmark.
 
 Each scan creates a case directory:
 
@@ -112,6 +138,7 @@ cases/<sha256>/
 | `report --html` | working (standalone, offline, evidence-linked) |
 | `rules list/test` | working |
 | `unpack` | working (UPX only; detects other packers) |
+| `eval` | working (labelled manifest; accuracy, PR-AUC, technique recall) |
 
 Exit codes: `0` clean, `1` suspicious, `2` malicious, `3` inconclusive/error.
 
@@ -137,8 +164,9 @@ glassbox/
     speakeasy_backend.py  subprocess runner + report/dropped-file capture
     apply.py              report -> attempted events + findings
   correlate.py    cross-source technique/evidence correlation
+  evaluation.py   labelled-corpus metrics and manifest loading
   score.py        sneakiness + evidence-weighted verdict
-  report/         terminal, JSON, and standalone HTML output
+  report/         terminal, JSON, standalone HTML, evaluation output
 ```
 
 ## Tests
@@ -147,8 +175,10 @@ glassbox/
 .venv/bin/pytest
 ```
 
-Tests build a synthetic PE fixture in `tests/fixtures/make_pe.py`; no malware is
-required. Emulation tests are skipped if Speakeasy is not installed.
+Tests build synthetic PE fixtures in `tests/fixtures/make_pe.py`; no malware is
+required. Emulation tests are skipped if Speakeasy is not installed. The current
+suite has 42 tests, including corpus metrics, HTML escaping, and UPX unpacking
+with a fake unpacker.
 
 ## Current limitations
 
@@ -160,3 +190,7 @@ required. Emulation tests are skipped if Speakeasy is not installed.
 - Correlation is a report-level summary: it shows where static capabilities and
   attempted behaviour overlap, but it does not yet build a full graph database.
 - Emulation remains best-effort and can be evaded by anti-analysis samples.
+- The evaluation corpus is synthetic and rule-aligned. Treat the perfect demo
+  scores as a smoke test, not evidence of real-world detection quality; a real
+  corpus is needed for the Phase 6 numbers. `glassbox eval` currently measures
+  the static path only; unpack/emulation ablations are future work.

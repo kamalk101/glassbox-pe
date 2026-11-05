@@ -83,7 +83,7 @@ Every fact is an event:
 | **3** | Packer detection + UPX/generic unpack + before/after diff | done for UPX; common packers detected, generic unpack planned |
 | **4** | Speakeasy emulation: process/file/network/registry events, dropped files | basic done (API events, dropped files, behaviour findings) |
 | **5** | Correlation, technique-level verdicts, evidence graph, HTML report, differential | done (correlation summary, evidence-linked HTML, unpack diff); graph UI later |
-| **6** | Corpus, evaluation (PR-AUC, per-technique recall, evasion), demo script | planned |
+| **6** | Corpus, evaluation (PR-AUC, per-technique recall, evasion), demo script | partial (synthetic corpus + metrics harness; real corpus pending) |
 | **7** | UI: case dashboard, evidence graph, timeline, diff viewer | optional |
 
 ## Feature tiers
@@ -122,6 +122,13 @@ enrichment, Qiling fallback.
 - **Future bonus:** compare emulated `attempted` behaviour with VM `observed`
   behaviour.
 
+### Implemented harness
+
+`glassbox eval <corpus>` reads a JSON manifest and emits machine-readable or
+terminal metrics. `scripts/make_corpus.py` generates a small synthetic smoke
+corpus. The harness can be pointed at a real corpus later without changing the
+analyzer; manifest labels and expected ATT&CK techniques drive the metrics.
+
 ## Current commands
 
 ```bash
@@ -133,11 +140,16 @@ glassbox analyze sample.exe           # alias for the deep path
 glassbox unpack packed.exe            # UPX unpack + child diff
 glassbox unpack packed.exe --json
 glassbox report <id> --html           # standalone evidence-linked report
+glassbox eval corpus/demo             # labelled-corpus metrics
 glassbox cases list
 glassbox cases show <id-or-prefix>
 glassbox rules list
 glassbox rules test sample.exe
 ```
+
+`make corpus` generates a six-sample synthetic corpus under `corpus/demo/`.
+`make eval` runs the static evaluator and prints accuracy, per-class scores,
+binary PR-AUC, confusion matrix, and ATT&CK technique recall.
 
 UPX discovery precedence: `GLASSBOX_UPX`, `PATH`, then `tools/upx` in the
 project. Fetch a standalone binary with `sh scripts/fetch_upx.sh`.
