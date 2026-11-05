@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+from typing import Sequence
+
 from . import score
 from .ingest import Intake
 from .schema import Case, Category, Source, Strength
@@ -10,6 +13,7 @@ from .static import packer as packer_mod
 from .static import pe as pe_mod
 from .static import rules as rules_mod
 from .static import strings as strings_mod
+from .static import yara as yara_mod
 from .utils import utc_now_iso
 
 
@@ -17,7 +21,11 @@ def _import_event_category(behaviour: str) -> Category:
     return imports_mod.BEHAVIOR_CATEGORY.get(behaviour, Category.PE)
 
 
-def analyze_static(intake: Intake) -> Case:
+def analyze_static(
+    intake: Intake,
+    *,
+    yara_rules: Sequence[str | Path] | None = None,
+) -> Case:
     case = Case(
         case_id=intake.case_id,
         file_name=intake.path.name,
@@ -162,6 +170,21 @@ def analyze_static(intake: Intake) -> Case:
             data={"commands": strings.commands},
         ).id
 
+    joined_strings = "\n".join(strings.all_strings).lower()
+    mining_markers = [
+        marker
+        for marker in ("stratum+tcp://", "stratum+ssl://", "xmrig", "cryptonight", "minerd")
+        if marker in joined_strings
+    ]
+    if mining_markers:
+        event_index["mining"] = case.add_event(
+            Category.NETWORK,
+            "mining_indicator",
+            target=", ".join(mining_markers),
+            data={"markers": mining_markers},
+            technique="T1496",
+        ).id
+
     # Rules -> findings
     context = rules_mod.RuleContext(
         info=info,
@@ -184,6 +207,9 @@ def analyze_static(intake: Intake) -> Case:
             confidence=draft.confidence,
             data=draft.data,
         )
+
+    yara_result = yara_mod.scan_bytes(data, yara_rules)
+    yara_mod.apply_to_case(case, yara_result)
 
     verdict = score.build_verdict(
         case.findings,
@@ -222,6 +248,10 @@ def analyze_static(intake: Intake) -> Case:
             for section in info.sections
         ],
         "packer": packer.to_dict(),
+        "yara": {
+            **yara_result.summary(),
+            "matches": [match.to_dict() for match in yara_result.matches],
+        },
         "events": len(case.events),
         "findings": len(case.findings),
     }

@@ -15,6 +15,7 @@ dependencies = [
     "click>=8.1",
     "rich>=13.0",
     "jinja2>=3.1",
+    "yara-python>=4.5",
 ]
 
 [project.optional-dependencies]
@@ -32,6 +33,7 @@ include = ["glassbox*"]
 
 [tool.setuptools.package-data]
 "glassbox.report" = ["templates/*.j2"]
+"glassbox.static" = ["yara_rules/*.yar", "yara_rules/*.yara"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

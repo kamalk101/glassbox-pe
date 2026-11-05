@@ -155,6 +155,7 @@ class Verdict:
     next_steps: list[str] = field(default_factory=list)
     counterfactuals: list[dict[str, Any]] = field(default_factory=list)
     sneakiness_reasons: list[str] = field(default_factory=list)
+    mitigations: list[str] = field(default_factory=list)
     static_only: bool = True
 
     def to_dict(self) -> dict[str, Any]:
@@ -168,6 +169,7 @@ class Verdict:
             "techniques": self.techniques,
             "next_steps": self.next_steps,
             "counterfactuals": self.counterfactuals,
+            "mitigations": self.mitigations,
             "static_only": self.static_only,
         }
 
@@ -183,6 +185,7 @@ class Verdict:
             next_steps=raw.get("next_steps") or [],
             counterfactuals=raw.get("counterfactuals") or [],
             sneakiness_reasons=raw.get("sneakiness_reasons") or [],
+            mitigations=raw.get("mitigations") or [],
             static_only=bool(raw.get("static_only", True)),
         )
 

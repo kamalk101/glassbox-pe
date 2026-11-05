@@ -12,6 +12,10 @@ BEHAVIORS: dict[str, set[str]] = {
         "ntcreatethreadex", "queueuserapc", "setthreadcontext", "ntunmapviewofsection",
         "rtlcreateuserthread", "virtualprotectex",
     },
+    "process_memory": {
+        "readprocessmemory", "ntreadvirtualmemory", "minidumpwritedump",
+        "psscapturesnapshot",
+    },
     "execution": {
         "createprocessa", "createprocessw", "winexec", "shellexecutea",
         "shellexecutew", "shellexecuteexa", "shellexecuteexw",
@@ -62,6 +66,7 @@ BEHAVIORS: dict[str, set[str]] = {
 
 BEHAVIOR_CATEGORY: dict[str, Category] = {
     "process_injection": Category.PROCESS,
+    "process_memory": Category.PROCESS,
     "execution": Category.PROCESS,
     "dynamic_loading": Category.PROCESS,
     "persistence": Category.REGISTRY,
@@ -76,6 +81,7 @@ BEHAVIOR_CATEGORY: dict[str, Category] = {
 
 BEHAVIOR_TECHNIQUE: dict[str, str] = {
     "process_injection": "T1055",
+    "process_memory": "T1003.001",
     "execution": "T1106",
     "dynamic_loading": "T1129",
     "persistence": "T1547.001",
@@ -86,8 +92,27 @@ BEHAVIOR_TECHNIQUE: dict[str, str] = {
     "screen_capture": "T1113",
 }
 
+# Timing and sleep APIs are normal in almost every Windows program. They only
+# become meaningful anti-analysis evidence when paired with debugger or
+# process-inspection checks. Keeping the two sets separate prevents the most
+# common static false positive on real benign binaries.
+STRONG_ANTI_ANALYSIS = {
+    "isdebuggerpresent",
+    "checkremotedebuggerpresent",
+    "ntqueryinformationprocess",
+    "outputdebugstringa",
+    "outputdebugstringw",
+}
+WEAK_ANTI_ANALYSIS = {
+    "gettickcount",
+    "gettickcount64",
+    "queryperformancecounter",
+    "sleep",
+}
+
 BEHAVIOR_LABELS: dict[str, str] = {
     "process_injection": "process injection",
+    "process_memory": "process memory access",
     "execution": "process execution",
     "dynamic_loading": "runtime code loading",
     "persistence": "persistence / registry autorun",
@@ -135,6 +160,14 @@ def classify_api(function: str) -> list[str]:
     (`KERNEL32.CreateFileA`).
     """
     return API_LOOKUP.get(_normalise(function), [])
+
+
+def is_strong_anti_analysis(function: str) -> bool:
+    return _normalise(function) in STRONG_ANTI_ANALYSIS
+
+
+def is_weak_anti_analysis(function: str) -> bool:
+    return _normalise(function) in WEAK_ANTI_ANALYSIS
 
 
 def analyze(imports: dict[str, list[str]], ordinal_imports: dict[str, list[int]]) -> ImportAnalysis:

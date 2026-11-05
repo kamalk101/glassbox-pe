@@ -11,6 +11,7 @@ from ..static.imports import (
     BEHAVIOR_LABELS,
     BEHAVIOR_TECHNIQUE,
     classify_api,
+    is_strong_anti_analysis,
 )
 from .speakeasy_backend import EmulationOutcome
 
@@ -104,6 +105,8 @@ def apply_emulation(case: Case, outcome: EmulationOutcome) -> Case:
         function = _function_name(api_name)
         behaviours = classify_api(function)
         behaviour = behaviours[0] if behaviours else None
+        if behaviour == "anti_analysis" and not is_strong_anti_analysis(function):
+            behaviour = None
         category = BEHAVIOR_CATEGORY.get(behaviour, Category.OTHER) if behaviour else Category.OTHER
         args = call.get("args") or []
         target = str(args[0]) if args else ""
@@ -194,10 +197,22 @@ def apply_emulation(case: Case, outcome: EmulationOutcome) -> Case:
         behaviour_events["file_write"] = behaviour_events.get("file", [])
         behaviour_functions["file_write"] = file_writes
 
+    static_techniques = {
+        technique
+        for finding in case.findings
+        if finding.source is Source.STATIC
+        for technique in finding.techniques
+    }
+
     for behaviour, (rule_id, title, severity_name, technique) in BEHAVIOUR_FINDINGS.items():
         events = behaviour_events.get(behaviour) or []
         functions = behaviour_functions.get(behaviour) or []
         if not events:
+            continue
+        # Do not double-count a low-value capability that static analysis has
+        # already established. Higher-severity emulation findings still add the
+        # attempted-behaviour layer.
+        if severity_name == "low" and technique and technique in static_techniques:
             continue
         case.add_finding(
             rule_id=rule_id,
@@ -279,6 +294,7 @@ def apply_emulation(case: Case, outcome: EmulationOutcome) -> Case:
             static_only=False,
             sneakiness=case.verdict.sneakiness,
             sneakiness_reasons=case.verdict.sneakiness_reasons,
+            signed=bool((case.artifacts.get("pe") or {}).get("signed")),
         )
         case.verdict.techniques = case.techniques()
 

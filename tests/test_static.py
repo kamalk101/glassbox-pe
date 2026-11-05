@@ -93,3 +93,43 @@ def test_minimal_clean_sample(tmp_path):
     assert case.verdict is not None
     assert case.verdict.label.value == "clean"
     assert not any(f.rule_id == "GB-PROC-001" for f in case.findings)
+
+
+def test_timing_only_apis_are_not_anti_analysis(tmp_path):
+    data = build_pe(
+        imports=["GetTickCount", "QueryPerformanceCounter", "Sleep", "CreateFileA"],
+        strings=["ordinary timing code"],
+    )
+    case = _analyze(tmp_path, data)
+
+    assert not any(f.rule_id == "GB-PE-016" for f in case.findings)
+    assert case.verdict.label.value == "clean"
+
+
+def test_strong_debugger_checks_are_anti_analysis(tmp_path):
+    data = build_pe(
+        imports=["IsDebuggerPresent", "CheckRemoteDebuggerPresent", "Sleep"],
+        strings=["debugger detected"],
+    )
+    case = _analyze(tmp_path, data)
+
+    finding = next(f for f in case.findings if f.rule_id == "GB-PE-016")
+    assert finding.data["functions"] == ["CheckRemoteDebuggerPresent", "IsDebuggerPresent"]
+
+
+def test_lone_version_like_ip_is_not_network_capability(tmp_path):
+    data = build_pe(
+        imports=["CreateFileA", "ReadFile"],
+        strings=["FileVersion 1.1.0.14"],
+    )
+    case = _analyze(tmp_path, data)
+
+    assert not any(f.rule_id == "GB-NET-001" for f in case.findings)
+
+
+def test_yara_finding_contributes_to_verdict(tmp_path):
+    data = build_pe(strings=["sekurlsa::logonpasswords"])
+    case = _analyze(tmp_path, data)
+
+    assert any(f.rule_id == "GB-YARA-001" for f in case.findings)
+    assert case.verdict.label.value in {"suspicious", "malicious"}

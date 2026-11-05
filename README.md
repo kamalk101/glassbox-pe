@@ -6,16 +6,17 @@ GlassBox PE takes a single `.exe`, looks at what it *is* and what it *tries to d
 and produces a technique-level verdict where every claim is backed by an evidence
 event.
 
-> Status: **static core + basic Speakeasy emulation + UPX unpacking +
-> evidence-linked reports + labelled-corpus evaluation + offline case
-> dashboard**. Real-corpus evaluation and a richer interactive UI are next. See
-> `docs/PLAN.md`.
+> Status: **static core + built-in YARA + Speakeasy emulation + UPX unpacking +
+> evidence-linked reports + labelled-corpus evaluation (static / unpack / emulation)
+> + offline case dashboard**. Real local benign-corpus evaluation is in place;
+> real-malware evaluation is still pending. See `docs/EVALUATION.md` and `docs/PLAN.md`.
 
 ## Why
 
 Most student malware detectors output one number. GlassBox PE outputs:
 
 - what the sample can do (static capabilities)
+- artifact-level matches (built-in YARA rules)
 - what it tried to do (emulated behaviour)
 - how hard it tries to hide (analysis-resistance score)
 - which ATT&CK techniques are present
@@ -43,8 +44,10 @@ python3 -m venv .venv
 .venv/bin/pip install -e ".[dev,emu]"
 ```
 
-On Python 3.12+ the emulation extra pins `setuptools<81` because Speakeasy's
-Unicorn 1.0.2 still imports `distutils` and `pkg_resources`.
+`yara-python` is a core dependency, so a C compiler is needed to build it on
+Linux (wheels are available on most platforms). On Python 3.12+ the emulation
+extra pins `setuptools<81` because Speakeasy's Unicorn 1.0.2 still imports
+`distutils` and `pkg_resources`.
 
 `glassbox unpack` needs a UPX binary. Fetch a standalone copy into `tools/`
 (ignored by git):
@@ -78,6 +81,9 @@ glassbox unpack packed.exe --json
 glassbox cases list
 glassbox cases show <sha256>
 
+# List built-in YARA rules and status
+glassbox rules yara
+
 # Re-emit a stored report
 glassbox report <sha256> --json
 glassbox report <sha256> --html
@@ -89,7 +95,16 @@ glassbox dashboard --reports
 # Build the synthetic demo corpus and evaluate static triage
 make corpus
 glassbox eval corpus/demo
-glassbox eval corpus/demo --json
+glassbox eval corpus/demo --mode static --json
+
+# Ablation modes: static+unpack and static+emulation
+glassbox eval corpus/upx-benign --mode unpack
+glassbox eval corpus/local-benign --mode emulation --timeout 8
+
+# Real local benign corpus (trusted installed software, no downloads)
+make corpus-benign
+glassbox eval corpus/local-benign
+make corpus-mixed && glassbox eval corpus/mixed
 
 # One-shot class demo: static scan + HTML report + corpus metrics
 make demo
@@ -103,8 +118,10 @@ findings, score), and a `GB-UNP-001` finding when hidden capabilities appear.
 
 `glassbox eval` reads a corpus directory containing `manifest.json` (or a
 manifest path directly) and reports 3-class accuracy, per-class precision/recall,
-binary precision/recall/F1, PR-AUC, a confusion matrix, and technique-level
-recall. A manifest entry looks like:
+binary precision/recall/F1, PR-AUC, recall at FPR ≤ 1%, calibration (Brier and
+expected calibration error), a confusion matrix, and technique-level recall. It
+also supports three ablation modes: `static`, `unpack`, and `emulation`. A
+manifest entry looks like:
 
 ```json
 {
@@ -116,8 +133,25 @@ recall. A manifest entry looks like:
 }
 ```
 
-`scripts/make_corpus.py` builds a six-sample synthetic corpus for demos and
-regression checks. It is intentionally small and not a real-world benchmark.
+The corpus tooling builds several evaluation sets:
+
+- `scripts/make_corpus.py` (`make corpus`) — ten synthetic PE fixtures; useful
+  for regression and demo, not a real-world benchmark.
+- `scripts/make_local_benign_corpus.py` (`make corpus-benign`) — collects real
+  benign Windows PEs from trusted local installs (VS Code, Python launchers),
+  deduplicates by SHA-256, labels them `clean`, and writes provenance into the
+  manifest. No downloads, no execution.
+- `scripts/make_mixed_corpus.py` (`make corpus-mixed`) — references the local
+  benign corpus plus the non-clean synthetic samples, so you get a mixed-set
+  measurement without copying files.
+- `scripts/make_upx_corpus.py` — packs a trusted benign PE with UPX for
+  unpack-ablation testing (needs `make upx` or a system UPX).
+
+Measured results are in `docs/EVALUATION.md`. In short: on the 23-sample local
+benign corpus the static path has zero false positives, and the synthetic set
+shows 90% accuracy, 87.5% binary recall, and 96% technique recall, with one known
+static false negative (`evasive-timing-only.exe`). No real malware has been
+evaluated or executed.
 
 `glassbox dashboard` writes an offline `index.html` with verdict counts, a
 searchable/filterable case table, and links to per-case reports. Add `--reports`
@@ -149,8 +183,9 @@ cases/index.html                  # dashboard index (after `dashboard`)
 | `report --html` | working (standalone, offline, evidence-linked) |
 | `dashboard` | working (offline index, search/filter, per-case reports) |
 | `rules list/test` | working |
+| `rules yara` | working |
 | `unpack` | working (UPX only; detects other packers) |
-| `eval` | working (labelled manifest; accuracy, PR-AUC, technique recall) |
+| `eval` | working (`--mode static|unpack|emulation`, PR-AUC, recall@FPR, calibration, technique recall) |
 
 Exit codes: `0` clean, `1` suspicious, `2` malicious, `3` inconclusive/error.
 
@@ -168,6 +203,8 @@ glassbox/
     imports.py    suspicious API grouping
     packer.py     packer detection (UPX and common packers)
     rules.py      detection rules -> findings
+    yara.py       YARA loading/matching -> evidence-linked findings
+    yara_rules/   built-in YARA rules
   unpack/
     service.py    detect -> choose unpacker -> validate output
     upx.py        UPX discovery and subprocess invocation
@@ -189,22 +226,31 @@ glassbox/
 
 Tests build synthetic PE fixtures in `tests/fixtures/make_pe.py`; no malware is
 required. Emulation tests are skipped if Speakeasy is not installed. The current
-suite has 43 tests, including corpus metrics, HTML escaping, dashboard
-generation, and UPX unpacking with a fake unpacker.
+suite has 57 tests, including corpus metrics, HTML escaping, dashboard
+generation, UPX unpacking with a fake unpacker, YARA matching, and the
+evaluation ablation harness.
 
 ## Current limitations
 
 - Emulated API arguments are logged, but pointers are not yet resolved to strings.
 - Child processes are not truly executed; dropped files are captured and queued.
-- Emulation can be evaded by anti-analysis samples (`GB-EMU-000` flags this).
+- Emulation is best-effort and can be evaded by anti-analysis samples
+  (`GB-EMU-000` flags this). Speakeasy also rejects ARM64 samples with a clear
+  error; 19/23 local benign samples ran and 4 ARM64 samples did not.
 - Only UPX unpacking is implemented; other packers are detected and marked
   unsupported. Child payloads are analyzed one level deep, not recursively.
-- Correlation is a report-level summary: it shows where static capabilities and
-  attempted behaviour overlap, but it does not yet build a full graph database.
-- The dashboard is a static offline index. It has no server, timeline scrubber,
-  or interactive evidence-graph view yet.
-- Emulation remains best-effort and can be evaded by anti-analysis samples.
-- The evaluation corpus is synthetic and rule-aligned. Treat the perfect demo
-  scores as a smoke test, not evidence of real-world detection quality; a real
-  corpus is needed for the Phase 6 numbers. `glassbox eval` currently measures
-  the static path only; unpack/emulation ablations are future work.
+- Correlation is a report-level summary; it does not yet build a full graph
+  database. The dashboard is static and offline (no server, timeline, or
+  interactive evidence graph yet).
+- The evaluation includes real **benign** binaries, but no real **malicious**
+  samples have been evaluated or executed. The local benign corpus is also not
+  representative. Real-malware numbers remain outstanding.
+- `glassbox eval` can now run static / unpack / emulation ablations, but the
+  mixed corpus is only real benign + synthetic malicious; it is not a benchmark
+  of real-world detection quality.
+- An Authenticode signature present reduces the score by 20 points. A signature
+  is not validated against a chain or revocation list, and signed samples can
+  still be flagged or remain clean. Treat it as a weak mitigation, not a trust
+  decision.
+- Static analysis misses timing-only anti-analysis samples such as
+  `corpus/demo/evasive-timing-only.exe` (see `docs/EVALUATION.md`).

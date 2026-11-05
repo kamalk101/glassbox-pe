@@ -22,6 +22,7 @@ from .report.dashboard import render_dashboard, write_case_reports
 from .report.eval_terminal import render_evaluation
 from .schema import TOOL_VERSION, Case, Category, Severity, Source, VerdictLabel
 from .static.rules import RULE_CATALOG
+from .static.yara import load_rules as load_yara_rules
 from .unpack import diff_cases, unpack_sample
 from .utils import human_size
 
@@ -77,6 +78,7 @@ def _recompute_verdict(case: Case) -> None:
         static_only=case.verdict.static_only,
         sneakiness=case.verdict.sneakiness,
         sneakiness_reasons=case.verdict.sneakiness_reasons,
+        signed=bool((case.artifacts.get("pe") or {}).get("signed")),
     )
     case.verdict.techniques = case.techniques()
 
@@ -455,16 +457,41 @@ def emu(
 @click.argument("corpus", type=click.Path(exists=True, path_type=Path))
 @click.option("--json", "as_json", is_flag=True, help="Print the evaluation result as JSON.")
 @click.option("--output", type=click.Path(dir_okay=False, path_type=Path), default=None)
+@click.option(
+    "--mode",
+    type=click.Choice(["static", "unpack", "emulation"], case_sensitive=False),
+    default="static",
+    show_default=True,
+    help="Ablation: static only, static+unpack, or static+emulation.",
+)
+@click.option("--timeout", default=30, type=click.IntRange(1, 600), show_default=True)
+@click.option("--limit", default=None, type=click.IntRange(1), help="Evaluate only the first N manifest entries.")
+@click.option(
+    "--yara-rules",
+    multiple=True,
+    type=click.Path(exists=True, path_type=Path),
+    help="Extra YARA file or directory (repeatable). Defaults to built-in rules.",
+)
 @click.pass_context
 def evaluate_command(
     ctx: click.Context,
     corpus: Path,
     as_json: bool,
     output: Path | None,
+    mode: str,
+    timeout: int,
+    limit: int | None,
+    yara_rules: tuple[Path, ...],
 ) -> None:
-    """Evaluate static triage against a labelled corpus manifest."""
+    """Evaluate triage against a labelled corpus manifest."""
     try:
-        result = evaluate_corpus(corpus)
+        result = evaluate_corpus(
+            corpus,
+            mode=mode.lower(),
+            timeout=timeout,
+            limit=limit,
+            yara_rules=yara_rules or None,
+        )
     except (OSError, ValueError) as exc:
         click.echo(f"error: {exc}", err=True)
         ctx.exit(3)
@@ -500,6 +527,22 @@ def list_rules() -> None:
     for rule_id, title in RULE_CATALOG:
         table.add_row(rule_id, title)
     console.print(table)
+
+
+@rules.command("yara")
+def list_yara() -> None:
+    """Show YARA availability and built-in rule files."""
+    compiled, error = load_yara_rules()
+    console = Console()
+    if compiled is None:
+        console.print(f"[yellow]YARA unavailable:[/yellow] {error}")
+        return
+    table = Table(box=box.SIMPLE_HEAD)
+    table.add_column("rule file", style="dim")
+    for path in compiled.files:
+        table.add_row(path)
+    console.print(table)
+    console.print(f"[dim]{compiled.count} YARA rule(s) from {len(compiled.files)} file(s)[/dim]")
 
 
 @rules.command("test")

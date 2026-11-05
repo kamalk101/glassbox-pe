@@ -1,4 +1,4 @@
-.PHONY: install test sample demo upx corpus eval dashboard clean
+.PHONY: install test sample demo upx corpus eval bench corpus-benign corpus-mixed eval-emulation upx-corpus eval-unpack dashboard clean
 
 PY := .venv/bin/python
 PIP := .venv/bin/pip
@@ -28,6 +28,27 @@ corpus:
 
 eval: corpus
 	$(GLASSBOX) eval corpus/demo
+
+corpus-benign:
+	$(PY) scripts/make_local_benign_corpus.py --clean
+
+corpus-mixed: corpus corpus-benign
+	$(PY) scripts/make_mixed_corpus.py
+
+bench: corpus-mixed
+	$(GLASSBOX) eval corpus/mixed
+
+eval-emulation: corpus-benign
+	$(GLASSBOX) eval corpus/local-benign --mode emulation --timeout 8
+
+upx-corpus:
+	@if [ -z "$(SRC)" ]; then \
+		echo "usage: make upx-corpus SRC=/path/to/benign.exe" >&2; exit 1; \
+	fi
+	$(PY) scripts/make_upx_corpus.py --clean --source "$(SRC)"
+
+eval-unpack:
+	$(GLASSBOX) eval corpus/upx-benign --mode unpack
 
 dashboard:
 	$(GLASSBOX) dashboard --reports

@@ -3,7 +3,10 @@ import json
 from click.testing import CliRunner
 
 from glassbox.cli import cli
-from glassbox.evaluation import evaluate_corpus, load_manifest
+from glassbox.emu import EmulationOutcome
+from glassbox.evaluation import _calibration, _recall_at_fpr, evaluate_corpus, load_manifest
+from glassbox.static.packer import PackerInfo
+from glassbox.unpack import UnpackResult
 from tests.fixtures.make_pe import build_pe
 
 
@@ -95,3 +98,102 @@ def test_cli_eval_json_and_output(tmp_path):
     assert payload["metrics"]["samples"] == 1
     assert output.is_file()
     assert json.loads(output.read_text(encoding="utf-8"))["metrics"]["samples"] == 1
+
+
+def test_recall_at_fpr_and_calibration():
+    actual = [True, True, False, False]
+    scores = [0.9, 0.4, 0.2, 0.1]
+    recall = _recall_at_fpr(actual, scores, max_fpr=0.0)
+    assert recall is not None
+    assert recall["recall"] == 1.0
+    assert recall["false_positive_rate"] == 0.0
+
+    calibration = _calibration(actual, [0.9, 0.8, 0.2, 0.1])
+    assert calibration["brier"] == 0.025
+    assert calibration["ece"] is not None
+
+
+def test_evaluate_corpus_emulation_mode(tmp_path):
+    _write_sample(
+        tmp_path / "clean.exe",
+        imports=["CreateFileA", "ReadFile"],
+        strings=["ordinary helper"],
+    )
+    (tmp_path / "manifest.json").write_text(
+        json.dumps([{"path": "clean.exe", "label": "clean", "techniques": []}]),
+        encoding="utf-8",
+    )
+
+    def fake_runner(path, timeout=30, workdir=None):
+        return EmulationOutcome(
+            ran=True,
+            report={
+                "emu_version": "test",
+                "entry_points": [
+                    {
+                        "apis": [
+                            {
+                                "api_name": "KERNEL32.CreateRemoteThread",
+                                "args": ["0x1"],
+                                "ret_val": "0x0",
+                            }
+                        ]
+                    }
+                ],
+            },
+        )
+
+    result = evaluate_corpus(tmp_path, mode="emulation", emulation_runner=fake_runner)
+
+    assert result["mode"] == "emulation"
+    assert result["emulation"]["ran"] == 1
+    assert result["emulation"]["api_calls"] == 1
+    assert "process" in result["samples"][0]["emulation"]["categories"]
+    assert result["samples"][0]["predicted"] in {"suspicious", "malicious"}
+    assert result["samples"][0]["static_score"] < result["samples"][0]["score"]
+
+
+def test_evaluate_corpus_unpack_mode(tmp_path):
+    _write_sample(
+        tmp_path / "packed.exe",
+        imports=["CreateFileA", "ReadFile"],
+        strings=["ordinary helper"],
+        packed=True,
+    )
+    (tmp_path / "manifest.json").write_text(
+        json.dumps([{"path": "packed.exe", "label": "malicious", "techniques": ["T1055"]}]),
+        encoding="utf-8",
+    )
+
+    def fake_unpack(path, output):
+        output.write_bytes(build_pe(imports=["OpenProcess", "VirtualAllocEx", "WriteProcessMemory"]))
+        return UnpackResult(
+            status="unpacked",
+            success=True,
+            packer=PackerInfo(name="UPX", confidence="high", upx=True),
+            method="upx",
+            output_path=str(output),
+        )
+
+    result = evaluate_corpus(tmp_path, mode="unpack", unpack_runner=fake_unpack)
+
+    assert result["mode"] == "unpack"
+    assert result["unpack"]["unpacked"] == 1
+    assert result["unpack"]["improved"] == 1
+    assert result["samples"][0]["predicted"] == "malicious"
+    assert result["samples"][0]["unpack"]["child_score"] > result["samples"][0]["static_score"]
+
+
+def test_cli_eval_mode_and_yara_summary(tmp_path):
+    _write_sample(tmp_path / "sample.exe", strings=["sekurlsa::logonpasswords"])
+    (tmp_path / "manifest.json").write_text(
+        json.dumps([{"path": "sample.exe", "label": "malicious", "techniques": ["T1003.001"]}]),
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(cli, ["eval", str(tmp_path), "--json", "--mode", "static"])
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["mode"] == "static"
+    assert payload["yara"]["samples_with_matches"] == 1

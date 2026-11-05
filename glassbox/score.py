@@ -81,12 +81,16 @@ def compute_sneakiness(info: PEInfo, strings: StringsResult, imports: ImportAnal
     return min(100, points), reasons
 
 
-def _label(score: int) -> VerdictLabel:
+def label_for_score(score: int) -> VerdictLabel:
     if score >= 60:
         return VerdictLabel.MALICIOUS
     if score >= 25:
         return VerdictLabel.SUSPICIOUS
     return VerdictLabel.CLEAN
+
+
+def _label(score: int) -> VerdictLabel:
+    return label_for_score(score)
 
 
 def _confidence(findings: list[Finding], static_only: bool = True) -> float:
@@ -142,6 +146,7 @@ def build_verdict(
     static_only: bool = True,
     sneakiness: int | None = None,
     sneakiness_reasons: list[str] | None = None,
+    signed: bool = False,
 ) -> Verdict:
     if sneakiness is None:
         if info is not None and strings is not None and imports is not None:
@@ -161,10 +166,21 @@ def build_verdict(
             next_steps=["Verify the file is a valid Windows executable.", "Try a known-good PE for comparison."],
             counterfactuals=[],
             sneakiness_reasons=reasons,
+            mitigations=[],
             static_only=static_only,
         )
 
     score = min(100, int(round(_weighted_sum(findings))))
+    mitigations: list[str] = []
+    signature_present = signed or bool(info is not None and info.signature_present)
+    if signature_present and score > 0:
+        discount = min(20, score)
+        score = max(0, score - discount)
+        mitigations.append(
+            f"Authenticode signature present: -{discount} risk point(s) "
+            "(presence is not a validity or trust check)"
+        )
+
     label = _label(score)
     confidence = _confidence(findings, static_only=static_only)
 
@@ -182,6 +198,8 @@ def build_verdict(
         )
     else:
         summary = f"{mode} evidence shows no strong indicators. This is not a guarantee of safety."
+    if mitigations:
+        summary += " " + "; ".join(mitigations) + "."
 
     steps: list[str] = []
     if info is not None:
@@ -212,5 +230,6 @@ def build_verdict(
         next_steps=steps,
         counterfactuals=counterfactuals(findings),
         sneakiness_reasons=reasons,
+        mitigations=mitigations,
         static_only=static_only,
     )

@@ -9,14 +9,31 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from ..schema import Category, Severity
-from .imports import BEHAVIOR_LABELS, BEHAVIOR_TECHNIQUE, ImportAnalysis
+from .imports import (
+    BEHAVIOR_LABELS,
+    BEHAVIOR_TECHNIQUE,
+    ImportAnalysis,
+    is_strong_anti_analysis,
+    is_weak_anti_analysis,
+)
 from .pe import PEInfo
 from .strings import StringsResult
 
 STANDARD_SECTIONS = {
     ".text", ".data", ".rdata", ".bss", ".rsrc", ".reloc", ".tls", ".idata",
     ".edata", ".debug", ".pdata", ".xdata", ".didat", ".didata", ".sdata",
-    ".gfids", ".00cfg", ".CRT", ".rodata",
+    ".gfids", ".00cfg", ".CRT", ".rodata", ".fptable",
+}
+
+STRONG_COMMANDS = {
+    "powershell", "pwsh", "rundll32", "regsvr32", "mshta", "wscript",
+    "cscript", "certutil", "bitsadmin", "schtasks", "wmic", "psexec",
+    "msbuild", "installutil",
+}
+
+INJECTION_WRITE_OR_EXECUTE = {
+    "writeprocessmemory", "createremotethread", "ntcreatethreadex",
+    "queueuserapc", "setthreadcontext", "rtlcreateuserthread",
 }
 
 
@@ -316,8 +333,14 @@ def evaluate(ctx: RuleContext) -> list[FindingDraft]:
 
     # ------------------------------------------------------------- Process rules
     injection = imports.groups.get("process_injection", [])
-    if injection:
-        severity = Severity.CRITICAL if len(injection) >= 3 else Severity.HIGH
+    injection_strong = [
+        function for function in injection
+        if function.lower() in INJECTION_WRITE_OR_EXECUTE
+    ]
+    # OpenProcess by itself is normal in debuggers, task managers, and service
+    # managers. Require a write/execute primitive before claiming injection.
+    if injection_strong:
+        severity = Severity.CRITICAL if len(injection_strong) >= 2 else Severity.HIGH
         findings.append(
             FindingDraft(
                 rule_id="GB-PROC-001",
@@ -330,27 +353,54 @@ def evaluate(ctx: RuleContext) -> list[FindingDraft]:
                 category=Category.PROCESS,
                 evidence=ctx.ev("imports:process_injection"),
                 techniques=["T1055"],
-                confidence=0.85 if len(injection) >= 3 else 0.7,
-                data={"functions": injection},
+                confidence=0.85 if len(injection_strong) >= 2 else 0.7,
+                data={"functions": injection, "primitives": injection_strong},
+            )
+        )
+
+    memory_reads = imports.groups.get("process_memory", [])
+    if memory_reads:
+        findings.append(
+            FindingDraft(
+                rule_id="GB-PROC-007",
+                title="Process memory read capability",
+                severity=Severity.MEDIUM if info.signature_present else Severity.HIGH,
+                description=(
+                    "The import table can read or dump another process's memory: "
+                    + ", ".join(memory_reads) + ". Signed debuggers and monitoring tools "
+                    "use the same APIs."
+                ),
+                category=Category.PROCESS,
+                evidence=ctx.ev("imports:process_memory"),
+                techniques=["T1003.001"],
+                confidence=0.65 if info.signature_present else 0.75,
+                data={"functions": memory_reads, "signed": info.signature_present},
             )
         )
 
     commands = strings.commands
-    if commands:
+    risky_commands = [command for command in commands if command in STRONG_COMMANDS]
+    encoded_powershell = any(
+        token in value.lower()
+        for value in strings.all_strings
+        for token in ("-encodedcommand", "-enc ", "frombase64string")
+    )
+    if risky_commands:
         findings.append(
             FindingDraft(
                 rule_id="GB-PROC-002",
                 title="Command interpreter / LOLBin strings",
-                severity=Severity.MEDIUM,
+                severity=Severity.HIGH if encoded_powershell else Severity.MEDIUM,
                 description=(
                     "Strings reference command interpreters or living-off-the-land binaries: "
-                    + ", ".join(commands) + "."
+                    + ", ".join(risky_commands) + "."
+                    + (" Encoded PowerShell content is present." if encoded_powershell else "")
                 ),
                 category=Category.PROCESS,
                 evidence=ctx.ev("ioc:commands"),
-                techniques=["T1059"],
-                confidence=0.65,
-                data={"commands": commands},
+                techniques=["T1059", "T1059.001", "T1027"] if encoded_powershell else ["T1059"],
+                confidence=0.75 if encoded_powershell else 0.65,
+                data={"commands": commands, "risky": risky_commands, "encoded": encoded_powershell},
             )
         )
 
@@ -479,12 +529,15 @@ def evaluate(ctx: RuleContext) -> list[FindingDraft]:
     urls = strings.iocs.get("urls", [])
     ips = strings.iocs.get("ips", [])
     domains = strings.iocs.get("domains", [])
-    if len(network) >= 2 or urls or ips:
+    # A lone four-part IP-looking string is frequently a version number in a
+    # real binary. Require actual network APIs or a URL before claiming network
+    # capability; keep raw IPs as supporting evidence when they accompany it.
+    if len(network) >= 2 or urls:
         findings.append(
             FindingDraft(
                 rule_id="GB-NET-001",
                 title="Network communication capability",
-                severity=Severity.MEDIUM if (len(network) >= 2 or urls) else Severity.LOW,
+                severity=Severity.MEDIUM if len(network) >= 2 else Severity.LOW,
                 description=(
                     "The sample imports network APIs and/or contains network indicators. "
                     f"{len(network)} network functions, {len(urls)} URLs, {len(ips)} IPs."
@@ -498,18 +551,18 @@ def evaluate(ctx: RuleContext) -> list[FindingDraft]:
         )
 
     execution = imports.groups.get("execution", [])
-    if network and (execution or dynamic):
+    if network and execution and (urls or ips):
         findings.append(
             FindingDraft(
                 rule_id="GB-NET-002",
                 title="Download-and-execute capability",
                 severity=Severity.HIGH,
                 description=(
-                    "The sample combines network access with process execution or runtime code "
-                    "loading. This is the classic dropper pattern."
+                    "The sample combines network access, network indicators, and process "
+                    "execution. This is the classic dropper pattern."
                 ),
                 category=Category.NETWORK,
-                evidence=ctx.ev("imports:network", "imports:execution", "imports:dynamic_loading"),
+                evidence=ctx.ev("imports:network", "imports:execution", "ioc:urls", "ioc:ips"),
                 techniques=["T1105", "T1106"],
                 confidence=0.75,
                 data={"network": network, "execution": execution, "dynamic": dynamic},
@@ -531,6 +584,30 @@ def evaluate(ctx: RuleContext) -> list[FindingDraft]:
                 techniques=["T1071.001"],
                 confidence=0.6,
                 data={"urls": urls[:5], "ips": ips[:5]},
+            )
+        )
+
+    joined_strings = "\n".join(strings.all_strings).lower()
+    mining_hits = [
+        marker
+        for marker in ("stratum+tcp://", "stratum+ssl://", "xmrig", "cryptonight", "minerd")
+        if marker in joined_strings
+    ]
+    if mining_hits:
+        findings.append(
+            FindingDraft(
+                rule_id="GB-NET-004",
+                title="Cryptocurrency mining indicators",
+                severity=Severity.HIGH,
+                description=(
+                    "The sample contains mining-pool or miner identifiers: "
+                    + ", ".join(mining_hits) + "."
+                ),
+                category=Category.NETWORK,
+                evidence=ctx.ev("mining"),
+                techniques=["T1496"],
+                confidence=0.85,
+                data={"markers": mining_hits},
             )
         )
 
@@ -557,22 +634,31 @@ def evaluate(ctx: RuleContext) -> list[FindingDraft]:
 
     # ------------------------------------------------------- Anti-analysis rules
     anti = imports.groups.get("anti_analysis", [])
-    if anti:
-        severity = Severity.HIGH if len(anti) >= 3 else Severity.MEDIUM
+    strong_anti = [function for function in anti if is_strong_anti_analysis(function)]
+    weak_anti = [function for function in anti if is_weak_anti_analysis(function)]
+    # Sleep/GetTickCount/QueryPerformanceCounter are ubiquitous. Only report
+    # anti-analysis when strong checks exist, or when one strong check is paired
+    # with another malicious capability.
+    if len(strong_anti) >= 2 or (
+        len(strong_anti) == 1
+        and (injection_strong or (persistence and autorun_keys))
+    ):
+        severity = Severity.CRITICAL if len(strong_anti) >= 3 else Severity.HIGH
         findings.append(
             FindingDraft(
                 rule_id="GB-PE-016",
                 title="Anti-analysis checks",
                 severity=severity,
                 description=(
-                    "The sample imports debugger, timing, or environment checks: "
-                    + ", ".join(anti) + ". These are used to detect analysts and sandboxes."
+                    "The sample imports debugger or environment checks: "
+                    + ", ".join(strong_anti)
+                    + ". These are used to detect analysts and sandboxes."
                 ),
                 category=Category.PE,
                 evidence=ctx.ev("imports:anti_analysis"),
                 techniques=["T1497.001"],
-                confidence=0.7,
-                data={"functions": anti},
+                confidence=0.7 if len(strong_anti) >= 2 else 0.6,
+                data={"functions": strong_anti, "timing_only": weak_anti},
             )
         )
 
@@ -616,12 +702,14 @@ RULE_CATALOG = [
     ("GB-PROC-004", "Keystroke capture capability"),
     ("GB-PROC-005", "Screen capture plus network capability"),
     ("GB-PROC-006", "Token / privilege manipulation capability"),
+    ("GB-PROC-007", "Process memory read capability"),
     ("GB-REG-001", "Persistence via autorun registry key"),
     ("GB-REG-002", "Registry write capability"),
     ("GB-REG-003", "Hardcoded autorun registry key"),
     ("GB-NET-001", "Network communication capability"),
     ("GB-NET-002", "Download-and-execute capability"),
     ("GB-NET-003", "Hardcoded URL and raw IP indicators"),
+    ("GB-NET-004", "Cryptocurrency mining indicators"),
     ("GB-FILE-001", "Hardcoded executable path in a writable location"),
 ]
 

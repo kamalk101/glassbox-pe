@@ -15,6 +15,7 @@ import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from ..static.pe import parse_pe
 from ..utils import hash_file
 
 
@@ -51,6 +52,19 @@ def run_emulation(path: str | Path, timeout: int = 60, workdir: str | Path | Non
                 "Speakeasy is not installed. Install the emulation extra:\n"
                 '  pip install "glassbox-pe[emu]"\n'
                 'or: pip install speakeasy-emulator "setuptools<81"'
+            ),
+        )
+
+    try:
+        info = parse_pe(target.read_bytes())
+    except OSError as exc:
+        return EmulationOutcome(ran=False, error=f"could not read sample: {exc}")
+    if info.is_pe and info.machine_name not in {"x86", "x86-64"}:
+        return EmulationOutcome(
+            ran=False,
+            error=(
+                f"Speakeasy backend does not support {info.machine_name} samples; "
+                "use an x86 or x86-64 build"
             ),
         )
 

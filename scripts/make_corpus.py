@@ -100,6 +100,54 @@ SAMPLES = [
         ],
         "pe": {"imports": DEFAULT_IMPORTS, "strings": DEFAULT_STRINGS, "packed": True},
     },
+    {
+        "path": "malicious-credential-theft.exe",
+        "label": "malicious",
+        "family": "credential-theft",
+        "notes": "YARA-visible credential-dumping strings",
+        "techniques": ["T1003.001"],
+        "pe": {
+            "imports": ["OpenProcess", "ReadProcessMemory", "CreateFileA"],
+            "strings": ["sekurlsa::logonpasswords", "lsadump::sam", "debug output"],
+        },
+    },
+    {
+        "path": "malicious-encoded-powershell.exe",
+        "label": "malicious",
+        "family": "encoded-powershell",
+        "notes": "encoded and dynamically downloaded PowerShell",
+        "techniques": ["T1059.001", "T1027"],
+        "pe": {
+            "imports": ["CreateProcessA", "WinExec", "InternetOpenA"],
+            "strings": [
+                "powershell -encodedcommand AAAA",
+                "FromBase64String",
+                "DownloadString",
+            ],
+        },
+    },
+    {
+        "path": "malicious-coinminer.exe",
+        "label": "malicious",
+        "family": "coinminer",
+        "notes": "mining-pool strings",
+        "techniques": ["T1496"],
+        "pe": {
+            "imports": ["InternetOpenA", "Connect", "Send", "Recv"],
+            "strings": ["stratum+tcp://pool.example:3333", "xmrig", "monero"],
+        },
+    },
+    {
+        "path": "evasive-timing-only.exe",
+        "label": "suspicious",
+        "family": "evasion-probe",
+        "notes": "designed to evade static: timing-only anti-analysis APIs, no strings",
+        "techniques": ["T1497.001"],
+        "pe": {
+            "imports": ["GetTickCount", "QueryPerformanceCounter", "Sleep"],
+            "strings": ["ordinary timing loop"],
+        },
+    },
 ]
 
 

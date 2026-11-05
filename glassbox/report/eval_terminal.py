@@ -25,6 +25,13 @@ def render_evaluation(result: dict) -> None:
     console.rule("[bold cyan]GlassBox PE · evaluation[/bold cyan]")
     console.print(f"[dim]corpus[/dim] {escape(result['corpus'])}")
     console.print(f"[dim]manifest[/dim] {escape(result['manifest'])}")
+    console.print(f"[dim]mode[/dim] {escape(result.get('mode', 'static'))}")
+    yara = result.get("yara") or {}
+    if yara:
+        console.print(
+            f"[dim]yara[/dim] {'available' if yara.get('available') else 'unavailable'}"
+            f" · {yara.get('matches', 0)} match(es) in {yara.get('samples_with_matches', 0)} sample(s)"
+        )
     console.print()
 
     summary = Table(box=box.SIMPLE, show_header=False, pad_edge=False)
@@ -37,10 +44,20 @@ def render_evaluation(result: dict) -> None:
     summary.add_row("binary recall", _percent(binary["recall"]))
     summary.add_row("binary F1", _percent(binary["f1"]))
     summary.add_row("PR-AUC", "n/a" if binary.get("pr_auc") is None else f"{binary['pr_auc']:.3f}")
+    recall_at_fpr = binary.get("recall_at_fpr_1pct")
+    summary.add_row(
+        "recall @ FPR<=1%",
+        "n/a" if recall_at_fpr is None else (
+            f"{_percent(recall_at_fpr['recall'])} @ score>={recall_at_fpr['threshold']:.2f}"
+        ),
+    )
     summary.add_row(
         "binary confusion",
         f"TP {binary['tp']} · FP {binary['fp']} · TN {binary['tn']} · FN {binary['fn']}",
     )
+    calibration = metrics.get("calibration") or {}
+    if calibration.get("brier") is not None:
+        summary.add_row("Brier / ECE", f"{calibration['brier']:.3f} / {calibration['ece']:.3f}")
     summary.add_row("technique recall", f"{_percent(techniques['recall'])} ({techniques['matched']}/{techniques['expected']})")
     console.print(Panel(summary, title="metrics", border_style="cyan"))
 
@@ -89,6 +106,30 @@ def render_evaluation(result: dict) -> None:
                 _percent(row["recall"]),
             )
         console.print(technique_table)
+
+    emulation = result.get("emulation")
+    if emulation:
+        emu_table = Table(title="emulation coverage", box=box.SIMPLE_HEAD)
+        emu_table.add_column("metric")
+        emu_table.add_column("value", justify="right")
+        emu_table.add_row("ran", str(emulation.get("ran", 0)))
+        emu_table.add_row("failed", str(emulation.get("failed", 0)))
+        emu_table.add_row("API calls", str(emulation.get("api_calls", 0)))
+        emu_table.add_row("samples with API events", str(emulation.get("samples_with_api_events", 0)))
+        emu_table.add_row(
+            "categories",
+            escape(", ".join(sorted((emulation.get("categories") or {}).keys())) or "-"),
+        )
+        console.print(emu_table)
+
+    unpack = result.get("unpack")
+    if unpack:
+        unpack_table = Table(title="unpack coverage", box=box.SIMPLE_HEAD)
+        unpack_table.add_column("metric")
+        unpack_table.add_column("value", justify="right")
+        for key in ("attempted", "unpacked", "improved", "unsupported", "failed"):
+            unpack_table.add_row(key, str(unpack.get(key, 0)))
+        console.print(unpack_table)
 
     samples = Table(title="samples", box=box.SIMPLE_HEAD)
     samples.add_column("file")

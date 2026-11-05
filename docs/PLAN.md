@@ -79,11 +79,11 @@ Every fact is an event:
 |---|---|---|
 | **0** | Repo, CLI, case store, schema v0, synthetic PE fixture | done |
 | **1** | Static core: PE parse, strings/IOCs, import behaviours, rules, scoring, terminal + JSON | done |
-| **2** | Rule depth, sneakiness breakdown, YARA, capa, installer detection | part done (sneakiness reasons) |
+| **2** | Rule depth, sneakiness breakdown, YARA, capa, installer detection | part done (sneakiness reasons, built-in YARA; capa still absent) |
 | **3** | Packer detection + UPX/generic unpack + before/after diff | done for UPX; common packers detected, generic unpack planned |
-| **4** | Speakeasy emulation: process/file/network/registry events, dropped files | basic done (API events, dropped files, behaviour findings) |
+| **4** | Speakeasy emulation: process/file/network/registry events, dropped files | basic done, validated on 23 local benign samples (19 ran, 4 ARM64 unsupported); network/registry coverage still thin |
 | **5** | Correlation, technique-level verdicts, evidence graph, HTML report, differential | done (correlation summary, evidence-linked HTML, unpack diff); graph UI later |
-| **6** | Corpus, evaluation (PR-AUC, per-technique recall, evasion), demo script | partial (synthetic corpus + metrics harness; real corpus pending) |
+| **6** | Corpus, evaluation (PR-AUC, per-technique recall, evasion), demo script | partial (synthetic + local benign + mixed set; ablation modes; real malicious corpus pending) |
 | **7** | UI: case dashboard, evidence graph, timeline, diff viewer | partial (offline searchable dashboard + linked case reports; graph/timeline pending) |
 
 ## Feature tiers
@@ -113,7 +113,9 @@ enrichment, Qiling fallback.
 ## Evaluation plan
 
 - **Corpus:** 20–30 benign (portable apps, installers, dev tools), 5–8 synthetic
-  malicious exes, 5–10 real samples handled in isolation.
+  malicious exes, 5–10 real samples handled in isolation. Current status:
+  23 real local benign PEs, 10 synthetic fixtures; real malicious set pending.
+  See `docs/EVALUATION.md`.
 - **Metrics:** PR-AUC, recall at FPR ≤ 1%, technique-level recall on synthetic
   samples, calibration check on the evidence-weighted confidence.
 - **Ablation:** static vs static+unpack vs static+emulation.
@@ -125,9 +127,14 @@ enrichment, Qiling fallback.
 ### Implemented harness
 
 `glassbox eval <corpus>` reads a JSON manifest and emits machine-readable or
-terminal metrics. `scripts/make_corpus.py` generates a small synthetic smoke
-corpus. The harness can be pointed at a real corpus later without changing the
-analyzer; manifest labels and expected ATT&CK techniques drive the metrics.
+terminal metrics. Modes: `static`, `unpack`, `emulation`. Metrics include
+PR-AUC, recall at FPR ≤ 1%, calibration (Brier/ECE), per-class scores, and
+technique-level recall. `scripts/make_corpus.py` generates the ten-fixture
+synthetic smoke set. `scripts/make_local_benign_corpus.py`,
+`scripts/make_mixed_corpus.py`, and `scripts/make_upx_corpus.py` build the
+real-benign, mixed, and UPX ablation sets — see `docs/EVALUATION.md` for
+measurements and the failure log. The harness can be pointed at a real
+malicious corpus later without changing the analyzer.
 
 ## Current commands
 
@@ -141,16 +148,22 @@ glassbox unpack packed.exe            # UPX unpack + child diff
 glassbox unpack packed.exe --json
 glassbox report <id> --html           # standalone evidence-linked report
 glassbox dashboard --reports          # offline case index + per-case reports
-glassbox eval corpus/demo             # labelled-corpus metrics
+glassbox eval corpus/demo             # labelled-corpus metrics (static)
+glassbox eval corpus/mixed            # synthetic malicious + 23 real local benign
+glassbox eval corpus/local-benign --mode emulation --timeout 8
+glassbox eval corpus/upx-benign --mode unpack
+glassbox rules yara                   # built-in YARA status
 glassbox cases list
 glassbox cases show <id-or-prefix>
 glassbox rules list
 glassbox rules test sample.exe
 ```
 
-`make corpus` generates a six-sample synthetic corpus under `corpus/demo/`.
+`make corpus` generates the ten-fixture synthetic corpus under `corpus/demo/`.
 `make eval` runs the static evaluator and prints accuracy, per-class scores,
-binary PR-AUC, confusion matrix, and ATT&CK technique recall.
+binary PR-AUC, recall at FPR ≤ 1%, calibration, confusion matrix, and ATT&CK
+technique recall. `make bench` builds the mixed set and prints the same metrics
+against it.
 
 UPX discovery precedence: `GLASSBOX_UPX`, `PATH`, then `tools/upx` in the
 project. Fetch a standalone binary with `sh scripts/fetch_upx.sh`.
