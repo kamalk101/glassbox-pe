@@ -1,8 +1,10 @@
 from glassbox.analyzer import analyze_static
 from glassbox.emu import DroppedFile, EmulationOutcome, apply_emulation
+from glassbox.emu.apply import _pointer_target
 from glassbox.ingest import ingest
 from glassbox.schema import Source, Strength
 from glassbox.static.imports import classify_api
+from glassbox.static.pe import parse_pe
 from tests.fixtures.make_pe import build_pe
 
 
@@ -40,6 +42,48 @@ def test_classify_speakeasy_api_name():
     assert classify_api("MSVCRT._initterm") == []
 
 
+def _image_pointer(data: bytes, info, needle: bytes) -> int:
+    offset = data.index(needle)
+    for section in info.sections:
+        if section.raw_pointer <= offset < section.raw_pointer + section.raw_size:
+            return info.image_base + section.virtual_address + offset - section.raw_pointer
+    raise AssertionError(f"{needle!r} was not found in a section")
+
+
+def test_pointer_target_resolves_ascii_strings_in_image():
+    data = build_pe()
+    info = parse_pe(data)
+    pointer = _image_pointer(data, info, b"http://bad.example/gate.php")
+
+    target, resolved = _pointer_target([hex(pointer)], data, info)
+
+    assert target == "http://bad.example/gate.php"
+    assert resolved == ["http://bad.example/gate.php"]
+
+
+def test_apply_emulation_uses_resolved_pointer_as_event_target(tmp_path):
+    data = build_pe()
+    sample = tmp_path / "sample.exe"
+    sample.write_bytes(data)
+    info = parse_pe(data)
+    pointer = _image_pointer(data, info, b"http://bad.example/gate.php")
+
+    case = analyze_static(ingest(sample))
+    report = _report()
+    for call in report["entry_points"][0]["apis"]:
+        if call["api_name"] == "KERNEL32.InternetOpenA":
+            call["args"] = [hex(pointer)]
+            break
+    outcome = EmulationOutcome(ran=True, report=report, report_path=str(tmp_path / "report.json"))
+
+    apply_emulation(case, outcome)
+
+    event = next(e for e in case.events if e.action == "InternetOpenA")
+    assert event.target == "http://bad.example/gate.php"
+    assert event.data["resolved_args"] == ["http://bad.example/gate.php"]
+    assert event.data["args"] == [hex(pointer)]
+
+
 def test_apply_emulation_adds_attempted_evidence(tmp_path):
     case = _static_case(tmp_path)
     dropped = tmp_path / "dropped.exe"
@@ -72,6 +116,33 @@ def test_apply_emulation_adds_attempted_evidence(tmp_path):
     assert case.verdict.confidence <= 0.90
     assert case.artifacts["emulation"]["api_calls"] == 6
     assert case.artifacts["emulation"]["dropped_files"]
+
+
+def test_apply_emulation_summarizes_resolved_resources(tmp_path):
+    data = build_pe()
+    sample = tmp_path / "sample.exe"
+    sample.write_bytes(data)
+    info = parse_pe(data)
+    registry = b"HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run"
+    drop_path = b"C:\\Users\\Public\\svchost.exe"
+
+    case = analyze_static(ingest(sample))
+    report = _report()
+    for call in report["entry_points"][0]["apis"]:
+        if call["api_name"] == "ADVAPI32.RegSetValueExA":
+            call["args"] = [hex(_image_pointer(data, info, registry))]
+        elif call["api_name"] == "KERNEL32.CreateFileA":
+            call["args"] = [hex(_image_pointer(data, info, drop_path))]
+    outcome = EmulationOutcome(ran=True, report=report, report_path=str(tmp_path / "report.json"))
+
+    apply_emulation(case, outcome)
+
+    assert case.artifacts["emulation"]["resources"]["registry"] == [
+        "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run"
+    ]
+    assert case.artifacts["emulation"]["resources"]["file"] == [
+        "C:\\Users\\Public\\svchost.exe"
+    ]
 
 
 def test_apply_emulation_is_idempotent(tmp_path):

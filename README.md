@@ -260,16 +260,17 @@ glassbox/
 
 Tests build synthetic PE fixtures in `tests/fixtures/make_pe.py`; no malware is
 required. Emulation tests are skipped if Speakeasy is not installed. The current
-suite has 60 tests, including corpus metrics, HTML escaping, dashboard
-generation, UPX unpacking with a fake unpacker, YARA matching, .NET metadata
-markers, the real-corpus runner, and the evaluation ablation harness.
+suite has 63 tests, including corpus metrics, HTML escaping, dashboard
+generation, UPX unpacking with a fake unpacker, pointer resolution, YARA
+matching, .NET metadata markers, the real-corpus runner, and the evaluation
+ablation harness.
 
 ## Current limitations
 
 - .NET analysis reads CLR metadata at the PE level; it does not decompile or
   run IL. Findings describe capabilities and markers, not proof of intent. Only
   one .NET control is currently available in the extended corpus.
-- Emulated API arguments are logged, but pointers are not yet resolved to strings.
+- Emulated API arguments are logged; pointers into the sample image are resolved to strings. Heap/stack pointers are still unresolved; see `docs/EMULATION.md`.
 
 - Child processes are not truly executed; dropped files are captured and queued.
 - Emulation is best-effort and can be evaded by anti-analysis samples

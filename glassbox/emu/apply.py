@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from pathlib import Path
 
 from .. import score
 from ..schema import Case, Category, Source, Strength
@@ -13,6 +14,7 @@ from ..static.imports import (
     classify_api,
     is_strong_anti_analysis,
 )
+from ..static.pe import parse_pe
 from .speakeasy_backend import EmulationOutcome
 
 MAX_API_EVENTS = 400
@@ -64,6 +66,78 @@ def _dll_name(api_name: str) -> str:
     return api_name.rsplit(".", 1)[0] if "." in api_name else ""
 
 
+def _printable(value: bytes) -> bool:
+    return bool(value) and all(32 <= byte <= 126 for byte in value)
+
+
+def _read_c_string(data: bytes, offset: int) -> str | None:
+    """Decode a null-terminated ANSI or UTF-16LE string from ``data``."""
+    if offset < 0 or offset >= len(data):
+        return None
+    window = data[offset : offset + 512]
+
+    zero = window.find(b"\x00")
+    if 0 < zero <= 260 and _printable(window[:zero]):
+        try:
+            return window[:zero].decode("ascii")
+        except UnicodeDecodeError:
+            pass
+
+    current = bytearray()
+    for index in range(0, len(window) - 1, 2):
+        codepoint = int.from_bytes(window[index : index + 2], "little")
+        if codepoint == 0:
+            if len(current) >= 4:
+                try:
+                    return current.decode("utf-16-le")
+                except UnicodeDecodeError:
+                    return None
+            return None
+        if codepoint < 32 or codepoint > 126:
+            return None
+        current += window[index : index + 2]
+    return None
+
+
+def _pointer_target(args: list, data: bytes, info) -> tuple[str, list[str]]:
+    """Map static PE pointer arguments to readable strings where possible.
+
+    Speakeasy logs addresses, not text. A read-only static overlay gives us the
+    common case: pointers into the sample's image, including constants and
+    import strings. Pointers on the stack or heap are intentionally skipped.
+    """
+    resolved: list[str] = []
+    image_base = getattr(info, "image_base", 0)
+    image_size = max(
+        (section.virtual_address + max(section.virtual_size, section.raw_size) for section in info.sections),
+        default=0,
+    )
+    for raw in args:
+        args_value = str(raw)
+        try:
+            pointer = int(args_value, 16)
+        except ValueError:
+            resolved.append(args_value)
+            continue
+        if image_base <= pointer < image_base + image_size:
+            rva = pointer - image_base
+            for section in info.sections:
+                span = max(section.virtual_size, section.raw_size)
+                if section.virtual_address <= rva < section.virtual_address + span:
+                    offset = section.raw_pointer + rva - section.virtual_address
+                    candidate = _read_c_string(data, offset)
+                    if candidate:
+                        resolved.append(candidate)
+                        break
+            else:
+                resolved.append(args_value)
+        else:
+            resolved.append(args_value)
+
+    target = next((item for item in resolved if item and not item.startswith("0x")), resolved[0] if resolved else "")
+    return target[:200], resolved
+
+
 def _iter_calls(report: dict):
     for entry_point in report.get("entry_points") or []:
         for call in entry_point.get("apis") or []:
@@ -79,6 +153,15 @@ def apply_emulation(case: Case, outcome: EmulationOutcome) -> Case:
         return case
 
     report = outcome.report
+    sample_data: bytes | None = None
+    pe_info = None
+    try:
+        sample_data = Path(case.file_path).read_bytes()
+        pe_info = parse_pe(sample_data)
+    except Exception:
+        sample_data = None
+        pe_info = None
+
     meta = case.add_event(
         Category.PE,
         "emulation",
@@ -109,13 +192,18 @@ def apply_emulation(case: Case, outcome: EmulationOutcome) -> Case:
             behaviour = None
         category = BEHAVIOR_CATEGORY.get(behaviour, Category.OTHER) if behaviour else Category.OTHER
         args = call.get("args") or []
-        target = str(args[0]) if args else ""
+        if sample_data is not None and pe_info is not None:
+            target, resolved_args = _pointer_target(args, sample_data, pe_info)
+        else:
+            target = str(args[0]) if args else ""
+            resolved_args = [str(arg) for arg in args]
         event = case.add_event(
             category,
             function,
             target=target[:200],
             data={
                 "args": args,
+                "resolved_args": resolved_args,
                 "ret": call.get("ret_val"),
                 "pc": call.get("pc"),
                 "dll": _dll_name(api_name),
@@ -275,6 +363,18 @@ def apply_emulation(case: Case, outcome: EmulationOutcome) -> Case:
             confidence=0.5,
         )
 
+    resources: dict[str, list[str]] = {"file": [], "network": [], "registry": []}
+    for event in case.events:
+        if event.source is not Source.EMULATION:
+            continue
+        try:
+            category = event.category.value
+        except AttributeError:
+            category = str(event.category)
+        if category in resources and event.target and not event.target.startswith("0x"):
+            resources[category].append(event.target)
+    resources = {key: sorted(set(values))[:25] for key, values in resources.items()}
+
     case.artifacts["emulation"] = {
         "ran": True,
         "version": report.get("emu_version"),
@@ -284,6 +384,7 @@ def apply_emulation(case: Case, outcome: EmulationOutcome) -> Case:
         "behaviours": {key: len(value) for key, value in behaviour_events.items()},
         "dropped_files": [drop.__dict__ for drop in outcome.dropped_files],
         "dynamic_segments": len(dynamic_events),
+        "resources": resources,
         "report_path": outcome.report_path,
         "error": outcome.error,
     }

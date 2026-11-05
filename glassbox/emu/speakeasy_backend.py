@@ -9,11 +9,16 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
-import subprocess
 import sys
+import subprocess
 import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
+
+try:
+    import resource
+except ImportError:  # pragma: no cover - non-POSIX platforms
+    resource = None
 
 from ..static.pe import parse_pe
 from ..utils import hash_file
@@ -41,6 +46,28 @@ class EmulationOutcome:
 
 def speakeasy_available() -> bool:
     return importlib.util.find_spec("speakeasy") is not None
+
+
+def _impose_limits(cpu_seconds: int) -> None:
+    if resource is None:  # pragma: no cover - non-POSIX/Windows path
+        return
+    try:
+        cpu = max(1, cpu_seconds)
+        resource.setrlimit(resource.RLIMIT_CPU, (cpu, cpu))
+    except (ValueError, OSError, AttributeError):
+        pass
+    try:
+        two_gb = 2 * 1024 * 1024 * 1024
+        soft, hard = resource.getrlimit(resource.RLIMIT_AS)
+        resource.setrlimit(resource.RLIMIT_AS, (min(two_gb, hard if hard >= 0 else two_gb), hard))
+    except (ValueError, OSError, AttributeError):
+        pass
+    try:
+        soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
+        resource.setrlimit(resource.RLIMIT_NOFILE, (512, hard))
+    except (ValueError, OSError, AttributeError):
+        pass
+
 
 
 def run_emulation(path: str | Path, timeout: int = 60, workdir: str | Path | None = None) -> EmulationOutcome:
@@ -107,6 +134,7 @@ def run_emulation(path: str | Path, timeout: int = 60, workdir: str | Path | Non
             text=True,
             timeout=max(30, timeout + 60),
             env=env,
+            preexec_fn=_impose_limits(timeout + 30) if os.name == "posix" else None,
         )
         stdout, stderr, returncode = completed.stdout, completed.stderr, completed.returncode
     except subprocess.TimeoutExpired as exc:
