@@ -146,13 +146,25 @@ The corpus tooling builds several evaluation sets:
   measurement without copying files.
 - `scripts/make_upx_corpus.py` — packs a trusted benign PE with UPX for
   unpack-ablation testing (needs `make upx` or a system UPX).
+- `scripts/stage_real_corpus.py` — stages operator-provided real samples into
+  a private, ignored corpus directory, validates PE formatting, deduplicates,
+  and creates a manifest. See `docs/REAL_CORPUS.md` for the safety workflow.
+- `scripts/validate_corpus.py` (`make corpus-validate`) — checks manifest shape,
+  duplicates, labels, ATT&CK IDs, and reports signed / installer / .NET /
+  packer coverage.
+- `scripts/false_positive_study.py` (`make fp-study`) — runs the static path
+  and slices results by signature, installer, .NET, packer, and family.
+
+Current benign coverage is 9 signed and 14 unsigned samples; there are no
+installer or .NET binaries in the local corpus, so those false-positive risks
+remain unmeasured. Add them in an isolated lab before quoting real-world
+numbers.
 
 Measured results are in `docs/EVALUATION.md`. In short: on the 23-sample local
 benign corpus the static path has zero false positives, and the synthetic set
 shows 90% accuracy, 87.5% binary recall, and 96% technique recall, with one known
 static false negative (`evasive-timing-only.exe`). No real malware has been
 evaluated or executed.
-
 `glassbox dashboard` writes an offline `index.html` with verdict counts, a
 searchable/filterable case table, and links to per-case reports. Add `--reports`
 to generate a `report.html` for every case first. The dashboard uses inline CSS

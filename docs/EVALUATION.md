@@ -20,6 +20,12 @@ Calibration, which is heuristic only: Brier 0.117 and ECE 0.207 on the synthetic
 set; Brier 0.232 and ECE 0.377 on the mixed set. These numbers should not be
 used to claim probability calibration until a real malicious corpus exists.
 
+False-positive slices on the mixed set (`make fp-study`): signed benign 0/9,
+unsigned benign 0/14, non-clean synth detected 7/8; the one miss is
+`evasive-timing-only.exe`. Installer and .NET coverage is currently zero, so
+those slices are unmeasured. Use `docs/REAL_CORPUS.md` to add them in an
+isolated lab.
+
 ## What the corpora are — and are not
 
 - `corpus/local-benign` is **real** Windows PE software (Microsoft/VS Code
@@ -68,6 +74,8 @@ used to claim probability calibration until a real malicious corpus exists.
 ## How to reproduce
 
 ```bash
+python scripts/validate_corpus.py corpus/mixed
+python scripts/false_positive_study.py corpus/mixed --format markdown
 # Synthetic regression / demo
 make corpus && make eval
 

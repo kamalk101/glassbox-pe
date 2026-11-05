@@ -1,4 +1,4 @@
-.PHONY: install test sample demo upx corpus eval bench corpus-benign corpus-mixed eval-emulation upx-corpus eval-unpack dashboard clean
+.PHONY: install test sample demo upx corpus eval bench corpus-benign corpus-mixed eval-emulation upx-corpus eval-unpack corpus-validate fp-study dashboard clean
 
 PY := .venv/bin/python
 PIP := .venv/bin/pip
@@ -40,6 +40,12 @@ bench: corpus-mixed
 
 eval-emulation: corpus-benign
 	$(GLASSBOX) eval corpus/local-benign --mode emulation --timeout 8
+
+corpus-validate:
+	$(PY) scripts/validate_corpus.py corpus/mixed
+
+fp-study: corpus-mixed
+	$(PY) scripts/false_positive_study.py corpus/mixed --format markdown
 
 upx-corpus:
 	@if [ -z "$(SRC)" ]; then \

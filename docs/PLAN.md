@@ -83,7 +83,7 @@ Every fact is an event:
 | **3** | Packer detection + UPX/generic unpack + before/after diff | done for UPX; common packers detected, generic unpack planned |
 | **4** | Speakeasy emulation: process/file/network/registry events, dropped files | basic done, validated on 23 local benign samples (19 ran, 4 ARM64 unsupported); network/registry coverage still thin |
 | **5** | Correlation, technique-level verdicts, evidence graph, HTML report, differential | done (correlation summary, evidence-linked HTML, unpack diff); graph UI later |
-| **6** | Corpus, evaluation (PR-AUC, per-technique recall, evasion), demo script | partial (synthetic + local benign + mixed set; ablation modes; real malicious corpus pending) |
+| **6** | Corpus, evaluation (PR-AUC, per-technique recall, evasion), demo script | partial (synthetic + local benign + mixed set; ablation modes, staging/validation/FP-study tooling; real malicious samples pending) |
 | **7** | UI: case dashboard, evidence graph, timeline, diff viewer | partial (offline searchable dashboard + linked case reports; graph/timeline pending) |
 
 ## Feature tiers
@@ -132,9 +132,11 @@ PR-AUC, recall at FPR ≤ 1%, calibration (Brier/ECE), per-class scores, and
 technique-level recall. `scripts/make_corpus.py` generates the ten-fixture
 synthetic smoke set. `scripts/make_local_benign_corpus.py`,
 `scripts/make_mixed_corpus.py`, and `scripts/make_upx_corpus.py` build the
-real-benign, mixed, and UPX ablation sets — see `docs/EVALUATION.md` for
-measurements and the failure log. The harness can be pointed at a real
-malicious corpus later without changing the analyzer.
+real-benign, mixed, and UPX ablation sets. `scripts/stage_real_corpus.py`,
+`scripts/validate_corpus.py`, and `scripts/false_positive_study.py` are the
+isolated real-corpus workflow. See `docs/REAL_CORPUS.md` and
+`docs/EVALUATION.md`. The harness can be pointed at a real malicious corpus
+once samples are lawfully available.
 
 ## Current commands
 
@@ -152,6 +154,9 @@ glassbox eval corpus/demo             # labelled-corpus metrics (static)
 glassbox eval corpus/mixed            # synthetic malicious + 23 real local benign
 glassbox eval corpus/local-benign --mode emulation --timeout 8
 glassbox eval corpus/upx-benign --mode unpack
+make corpus-validate              # corpus sanity + coverage counts
+make fp-study                     # false-positive slices by signature/packer/etc.
+python scripts/stage_real_corpus.py /path/to/samples --confirm-malware
 glassbox rules yara                   # built-in YARA status
 glassbox cases list
 glassbox cases show <id-or-prefix>
