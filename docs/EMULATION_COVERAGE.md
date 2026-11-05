@@ -55,7 +55,29 @@ failed to produce a Speakeasy report.
 | Samples with `registry` events | 0 |
 | Attempted behaviour counts | `dynamic_loading` 33, `file` 2 |
 
+## Five-candidate emulation pass
+
+A focused pass over five selected samples with static network/registry APIs found
+no attempted network or registry events in emulation. All five ran, but only the
+Python installer reached file APIs.
+
+| sample | ran | API calls | categories | behaviours |
+|---|---|---:|---|---|
+| 7-Zip 26.05 | yes | 19 | other, pe, process | dynamic_loading:1 |
+| Inno Setup 7.1.1 | yes | 12 | other, pe, process | dynamic_loading:4 |
+| Notepad++ 8.9.8.1 | yes | 55 | other, pe, process | dynamic_loading:14 |
+| Python 3.14.10 | yes | 183 | file, other, pe, process | dynamic_loading:14, file:2 |
+| wxc-exec | yes | 36 | other, pe, process | dynamic_loading:7 |
+
+Static analysis shows network/registry APIs in these samples, but their
+startup paths do not exercise those code paths in Speakeasy. This is a corpus
+and workload limitation, not proof that GlassBox can detect attempted
+network/registry behaviour in general.
+
 ## Combined benign/installer coverage
+
+This table covers the 23-sample local benign corpus and the five public
+installer binaries. The five-candidate pass above is a separate focused check.
 
 | Set | Result |
 |---|---|
