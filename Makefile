@@ -1,4 +1,4 @@
-.PHONY: install test sample demo upx corpus eval clean
+.PHONY: install test sample demo upx corpus eval dashboard clean
 
 PY := .venv/bin/python
 PIP := .venv/bin/pip
@@ -28,6 +28,9 @@ corpus:
 
 eval: corpus
 	$(GLASSBOX) eval corpus/demo
+
+dashboard:
+	$(GLASSBOX) dashboard --reports
 
 clean:
 	rm -rf cases reports corpus .pytest_cache build dist *.egg-info

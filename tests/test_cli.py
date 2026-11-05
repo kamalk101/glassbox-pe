@@ -92,6 +92,41 @@ def test_cli_report_html(tmp_path):
     assert both.exit_code == 3
 
 
+def test_cli_dashboard_and_case_reports(tmp_path):
+    clean = tmp_path / "clean.exe"
+    clean.write_bytes(
+        build_pe(
+            imports=["CreateFileA", "ReadFile", "CloseHandle"],
+            strings=["ordinary helper"],
+        )
+    )
+    suspicious = tmp_path / "suspicious.exe"
+    suspicious.write_bytes(build_pe())
+    cases = tmp_path / "cases"
+    runner = CliRunner()
+
+    for sample in (clean, suspicious):
+        runner.invoke(cli, ["scan", str(sample), "--json", "--cases-dir", str(cases)])
+
+    result = runner.invoke(cli, ["dashboard", "--cases-dir", str(cases), "--reports"])
+
+    assert result.exit_code == 0, result.output
+    target = Path(result.output.splitlines()[0])
+    assert target.name == "index.html"
+    assert target.is_file()
+    content = target.read_text(encoding="utf-8")
+    assert "Case index" in content
+    assert "clean.exe" in content
+    assert "suspicious.exe" in content
+    assert "label-clean" in content
+    assert "label-malicious" in content
+    assert 'id="search"' in content
+    assert "wrote 2 case report(s)" in result.output
+
+    report_files = list(cases.glob("*/report.html"))
+    assert len(report_files) == 2
+
+
 def test_cli_unpack_not_packed(tmp_path):
     sample = tmp_path / "sample.exe"
     sample.write_bytes(build_pe())

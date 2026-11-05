@@ -7,8 +7,9 @@ and produces a technique-level verdict where every claim is backed by an evidenc
 event.
 
 > Status: **static core + basic Speakeasy emulation + UPX unpacking +
-> evidence-linked reports + labelled-corpus evaluation**. Real-corpus
-> evaluation and the UI are next. See `docs/PLAN.md`.
+> evidence-linked reports + labelled-corpus evaluation + offline case
+> dashboard**. Real-corpus evaluation and a richer interactive UI are next. See
+> `docs/PLAN.md`.
 
 ## Why
 
@@ -82,6 +83,9 @@ glassbox report <sha256> --json
 glassbox report <sha256> --html
 glassbox report <sha256> --html --output /tmp/case.html
 
+# Offline dashboard for every stored case (with per-case HTML reports)
+glassbox dashboard --reports
+
 # Build the synthetic demo corpus and evaluate static triage
 make corpus
 glassbox eval corpus/demo
@@ -115,6 +119,11 @@ recall. A manifest entry looks like:
 `scripts/make_corpus.py` builds a six-sample synthetic corpus for demos and
 regression checks. It is intentionally small and not a real-world benchmark.
 
+`glassbox dashboard` writes an offline `index.html` with verdict counts, a
+searchable/filterable case table, and links to per-case reports. Add `--reports`
+to generate a `report.html` for every case first. The dashboard uses inline CSS
+and JavaScript only; no server or network access is required.
+
 Each scan creates a case directory:
 
 ```
@@ -124,6 +133,8 @@ cases/<sha256>/
   emulation/dropped/              # files written during emulation
   unpacked/                       # unpacked child binary (after `unpack`)
   report.html                     # standalone report (after `report --html`)
+
+cases/index.html                  # dashboard index (after `dashboard`)
 ```
 
 ## Current commands
@@ -136,6 +147,7 @@ cases/<sha256>/
 | `cases list/show/delete` | working |
 | `report --json` | working |
 | `report --html` | working (standalone, offline, evidence-linked) |
+| `dashboard` | working (offline index, search/filter, per-case reports) |
 | `rules list/test` | working |
 | `unpack` | working (UPX only; detects other packers) |
 | `eval` | working (labelled manifest; accuracy, PR-AUC, technique recall) |
@@ -166,7 +178,7 @@ glassbox/
   correlate.py    cross-source technique/evidence correlation
   evaluation.py   labelled-corpus metrics and manifest loading
   score.py        sneakiness + evidence-weighted verdict
-  report/         terminal, JSON, standalone HTML, evaluation output
+  report/         terminal, JSON, case HTML, dashboard, evaluation output
 ```
 
 ## Tests
@@ -177,8 +189,8 @@ glassbox/
 
 Tests build synthetic PE fixtures in `tests/fixtures/make_pe.py`; no malware is
 required. Emulation tests are skipped if Speakeasy is not installed. The current
-suite has 42 tests, including corpus metrics, HTML escaping, and UPX unpacking
-with a fake unpacker.
+suite has 43 tests, including corpus metrics, HTML escaping, dashboard
+generation, and UPX unpacking with a fake unpacker.
 
 ## Current limitations
 
@@ -189,6 +201,8 @@ with a fake unpacker.
   unsupported. Child payloads are analyzed one level deep, not recursively.
 - Correlation is a report-level summary: it shows where static capabilities and
   attempted behaviour overlap, but it does not yet build a full graph database.
+- The dashboard is a static offline index. It has no server, timeline scrubber,
+  or interactive evidence-graph view yet.
 - Emulation remains best-effort and can be evaded by anti-analysis samples.
 - The evaluation corpus is synthetic and rule-aligned. Treat the perfect demo
   scores as a smoke test, not evidence of real-world detection quality; a real

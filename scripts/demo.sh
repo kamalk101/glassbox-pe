@@ -35,9 +35,10 @@ with open(sys.argv[1] + ".id", "w", encoding="utf-8") as fh:
 PY
 
 echo
-echo "== standalone HTML report =="
+echo "== standalone HTML report and case dashboard =="
 CASE_ID="$(cat "$WORK/case.json.id")"
 "$GLASSBOX" report "$CASE_ID" --cases-dir "$WORK/cases" --html
+"$GLASSBOX" dashboard --cases-dir "$WORK/cases" --reports
 
 echo
 echo "== synthetic corpus evaluation =="

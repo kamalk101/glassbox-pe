@@ -53,6 +53,9 @@ class CaseStore:
             except (OSError, json.JSONDecodeError):
                 continue
             verdict = raw.get("verdict") or {}
+            artifacts = raw.get("artifacts") or {}
+            unpack = artifacts.get("unpack") or {}
+            emulation = artifacts.get("emulation") or {}
             rows.append(
                 {
                     "case_id": raw.get("case_id", entry.name),
@@ -62,6 +65,10 @@ class CaseStore:
                     "label": verdict.get("label", "inconclusive"),
                     "score": verdict.get("score", 0),
                     "confidence": verdict.get("confidence", 0.0),
+                    "sneakiness": verdict.get("sneakiness", 0),
+                    "unpack_status": unpack.get("status"),
+                    "emulation_ran": bool(emulation.get("ran")),
+                    "has_report": (entry / "report.html").is_file(),
                 }
             )
         return rows

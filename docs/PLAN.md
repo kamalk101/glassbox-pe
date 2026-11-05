@@ -84,7 +84,7 @@ Every fact is an event:
 | **4** | Speakeasy emulation: process/file/network/registry events, dropped files | basic done (API events, dropped files, behaviour findings) |
 | **5** | Correlation, technique-level verdicts, evidence graph, HTML report, differential | done (correlation summary, evidence-linked HTML, unpack diff); graph UI later |
 | **6** | Corpus, evaluation (PR-AUC, per-technique recall, evasion), demo script | partial (synthetic corpus + metrics harness; real corpus pending) |
-| **7** | UI: case dashboard, evidence graph, timeline, diff viewer | optional |
+| **7** | UI: case dashboard, evidence graph, timeline, diff viewer | partial (offline searchable dashboard + linked case reports; graph/timeline pending) |
 
 ## Feature tiers
 
@@ -140,6 +140,7 @@ glassbox analyze sample.exe           # alias for the deep path
 glassbox unpack packed.exe            # UPX unpack + child diff
 glassbox unpack packed.exe --json
 glassbox report <id> --html           # standalone evidence-linked report
+glassbox dashboard --reports          # offline case index + per-case reports
 glassbox eval corpus/demo             # labelled-corpus metrics
 glassbox cases list
 glassbox cases show <id-or-prefix>

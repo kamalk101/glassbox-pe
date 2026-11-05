@@ -18,6 +18,7 @@ from .emu import EmulationOutcome, apply_emulation, run_emulation
 from .evaluation import evaluate_corpus
 from .ingest import ingest
 from .report import render_case, render_html, render_json, render_quiet
+from .report.dashboard import render_dashboard, write_case_reports
 from .report.eval_terminal import render_evaluation
 from .schema import TOOL_VERSION, Case, Category, Severity, Source, VerdictLabel
 from .static.rules import RULE_CATALOG
@@ -231,6 +232,31 @@ def report(
         click.echo(render_json(case))
     else:
         render_case(case, case_path=str(store.case_path(case.case_id)))
+
+
+@cli.command()
+@click.option("--cases-dir", default=None)
+@click.option("--output", type=click.Path(dir_okay=False, path_type=Path), default=None)
+@click.option("--reports", is_flag=True, help="Generate a standalone HTML report for every case.")
+def dashboard(
+    cases_dir: str | None,
+    output: Path | None,
+    reports: bool,
+) -> None:
+    """Write an offline dashboard for all stored cases."""
+    store = CaseStore(resolve_cases_dir(cases_dir))
+    rows = store.list()
+    written = []
+    if reports and rows:
+        written = write_case_reports(store, rows)
+        rows = store.list()
+
+    target = (output or (store.root / "index.html")).expanduser()
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(render_dashboard(rows), encoding="utf-8")
+    click.echo(str(target))
+    if reports:
+        click.echo(f"wrote {len(written)} case report(s)")
 
 
 @cli.command()
