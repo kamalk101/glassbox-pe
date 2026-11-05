@@ -500,12 +500,15 @@ def evaluate(ctx: RuleContext) -> list[FindingDraft]:
             FindingDraft(
                 rule_id="GB-REG-002",
                 title="Registry write capability",
-                severity=Severity.MEDIUM,
-                description="The sample can create or modify registry values: " + ", ".join(persistence) + ".",
+                severity=Severity.LOW,
+                description=(
+                    "The sample imports registry write APIs. Alone this is weak evidence; "
+                    "installers and system tools do the same."
+                ),
                 category=Category.REGISTRY,
                 evidence=ctx.ev("imports:persistence"),
                 techniques=["T1112"],
-                confidence=0.6,
+                confidence=0.5,
                 data={"functions": persistence},
             )
         )

@@ -93,8 +93,9 @@ false-positive risk area.
 ## Recommended corpus mix
 
 - 20–30 benign controls: signed and unsigned applications, installers, dev
-  tools, and — if available — .NET assemblies. Current repo coverage: signed
-  9, unsigned 14, installers 0, .NET 0.
+  tools, and — if available — .NET assemblies. Current extended coverage: 13
+  signed and 15 unsigned benign samples, 2 installer hints, 1 .NET assembly.
+  More coverage is still desirable.
 - 5–8 synthetic malicious fixtures from `make_corpus`, for regression.
 - 5–10 high-confidence real malware families, preferably covering injection,
   persistence, network C2, packing, and credential access.

@@ -358,7 +358,11 @@ def parse_pe(data: bytes) -> PEInfo:
     except Exception:
         pass
 
-    info.is_dotnet = hasattr(pe, "DIRECTORY_ENTRY_COM_DESCRIPTOR")
+    try:
+        clr_directory = pe.OPTIONAL_HEADER.DATA_DIRECTORY[14]
+        info.is_dotnet = bool(clr_directory.VirtualAddress and clr_directory.Size)
+    except (IndexError, AttributeError):
+        info.is_dotnet = hasattr(pe, "DIRECTORY_ENTRY_COM_DESCRIPTOR")
 
     info.tls_callbacks, info.tls_callback_address = _tls_callbacks(pe)
 

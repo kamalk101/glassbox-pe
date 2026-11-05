@@ -106,6 +106,10 @@ make corpus-benign
 glassbox eval corpus/local-benign
 make corpus-mixed && glassbox eval corpus/mixed
 
+# Official public benign installers + extended 36-sample measurement
+make corpus-installers
+make bench-extended
+
 # One-shot class demo: static scan + HTML report + corpus metrics
 make demo
 ```
@@ -144,6 +148,13 @@ The corpus tooling builds several evaluation sets:
 - `scripts/make_mixed_corpus.py` (`make corpus-mixed`) — references the local
   benign corpus plus the non-clean synthetic samples, so you get a mixed-set
   measurement without copying files.
+- `scripts/fetch_benign_installers.py` (`make corpus-installers`) — downloads
+  five pinned official public installers/apps (7-Zip, Inno Setup, Python,
+  Notepad++, NuGet) into ignored `corpus/benign-installers/`; never runs them
+  and pins/records hashes and source URLs.
+- `make corpus-extended` / `make bench-extended` — combines the local benign
+  corpus, installer corpus, and synthetic malicious fixtures into a 36-sample
+  set (28 clean, 3 suspicious, 5 malicious-synthetic) for evaluation.
 - `scripts/make_upx_corpus.py` — packs a trusted benign PE with UPX for
   unpack-ablation testing (needs `make upx` or a system UPX).
 - `scripts/stage_real_corpus.py` — stages operator-provided real samples into
@@ -155,16 +166,18 @@ The corpus tooling builds several evaluation sets:
 - `scripts/false_positive_study.py` (`make fp-study`) — runs the static path
   and slices results by signature, installer, .NET, packer, and family.
 
-Current benign coverage is 9 signed and 14 unsigned samples; there are no
-installer or .NET binaries in the local corpus, so those false-positive risks
-remain unmeasured. Add them in an isolated lab before quoting real-world
-numbers.
+Current benign coverage includes 23 local-install PEs plus five pinned public
+installer/application binaries. The extended 36-sample set shows 97.2%
+accuracy, 0/28 false positives, 87.5% binary recall, PR-AUC 0.903, and 96%
+technique recall; its only miss is `evasive-timing-only.exe`. It covers one
+.NET assembly and two installer hints (`NSIS`, `Inno Setup`). This is still not
+a real-malware benchmark.
 
-Measured results are in `docs/EVALUATION.md`. In short: on the 23-sample local
-benign corpus the static path has zero false positives, and the synthetic set
-shows 90% accuracy, 87.5% binary recall, and 96% technique recall, with one known
-static false negative (`evasive-timing-only.exe`). No real malware has been
-evaluated or executed.
+Measured results are in `docs/EVALUATION.md`. In short: the local benign and
+public installer corpora have zero false positives; the extended mixed set
+shows 97.2% accuracy, 87.5% binary recall, and 96% technique recall, with one
+known static false negative (`evasive-timing-only.exe`). No real malware has
+been evaluated or executed.
 `glassbox dashboard` writes an offline `index.html` with verdict counts, a
 searchable/filterable case table, and links to per-case reports. Add `--reports`
 to generate a `report.html` for every case first. The dashboard uses inline CSS

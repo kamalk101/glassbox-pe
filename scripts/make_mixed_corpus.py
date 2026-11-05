@@ -28,6 +28,14 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--benign", default=str(ROOT / "corpus" / "local-benign"))
     parser.add_argument("--malicious", default=str(ROOT / "corpus" / "demo"))
+    parser.add_argument(
+        "--include-installers",
+        action="store_true",
+        help="also include clean public installer corpus from --installers",
+    )
+    parser.add_argument(
+        "--installers", default=str(ROOT / "corpus" / "benign-installers")
+    )
     parser.add_argument("--output", default=str(ROOT / "corpus" / "mixed"))
     args = parser.parse_args()
 
@@ -43,6 +51,18 @@ def main() -> int:
                 "_source": (benign_dir / sample["path"]).resolve(),
             }
         )
+    if args.include_installers:
+        installers_dir = Path(args.installers).expanduser().resolve()
+        for sample in _load(installers_dir):
+            if sample.get("label") != "clean":
+                continue
+            samples.append(
+                {
+                    **sample,
+                    "_source": (installers_dir / sample["path"]).resolve(),
+                }
+            )
+
     for sample in _load(malicious_dir):
         if sample.get("label") not in {"suspicious", "malicious"}:
             continue

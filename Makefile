@@ -1,4 +1,4 @@
-.PHONY: install test sample demo upx corpus eval bench corpus-benign corpus-mixed eval-emulation upx-corpus eval-unpack corpus-validate fp-study dashboard clean
+.PHONY: install test sample demo upx corpus eval bench corpus-benign corpus-installers corpus-mixed corpus-extended eval-emulation upx-corpus eval-unpack corpus-validate fp-study dashboard clean
 
 PY := .venv/bin/python
 PIP := .venv/bin/pip
@@ -32,8 +32,17 @@ eval: corpus
 corpus-benign:
 	$(PY) scripts/make_local_benign_corpus.py --clean
 
+corpus-installers:
+	$(PY) scripts/fetch_benign_installers.py --clean
+
 corpus-mixed: corpus corpus-benign
 	$(PY) scripts/make_mixed_corpus.py
+
+corpus-extended: corpus corpus-benign corpus-installers
+	$(PY) scripts/make_mixed_corpus.py --include-installers --output corpus/mixed-extended
+
+bench-extended: corpus-extended
+	$(GLASSBOX) eval corpus/mixed-extended
 
 bench: corpus-mixed
 	$(GLASSBOX) eval corpus/mixed

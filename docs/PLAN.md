@@ -114,7 +114,8 @@ enrichment, Qiling fallback.
 
 - **Corpus:** 20–30 benign (portable apps, installers, dev tools), 5–8 synthetic
   malicious exes, 5–10 real samples handled in isolation. Current status:
-  23 real local benign PEs, 10 synthetic fixtures; real malicious set pending.
+  28 clean benign controls (23 local-install + 5 pinned public installers), 10
+  synthetic fixtures; real malicious set pending.
   See `docs/EVALUATION.md`.
 - **Metrics:** PR-AUC, recall at FPR ≤ 1%, technique-level recall on synthetic
   samples, calibration check on the evidence-weighted confidence.
@@ -132,7 +133,9 @@ PR-AUC, recall at FPR ≤ 1%, calibration (Brier/ECE), per-class scores, and
 technique-level recall. `scripts/make_corpus.py` generates the ten-fixture
 synthetic smoke set. `scripts/make_local_benign_corpus.py`,
 `scripts/make_mixed_corpus.py`, and `scripts/make_upx_corpus.py` build the
-real-benign, mixed, and UPX ablation sets. `scripts/stage_real_corpus.py`,
+real-benign, mixed, installer, and UPX ablation sets.
+`scripts/fetch_benign_installers.py` materialises five pinned public benign
+installer binaries. `scripts/stage_real_corpus.py`,
 `scripts/validate_corpus.py`, and `scripts/false_positive_study.py` are the
 isolated real-corpus workflow. See `docs/REAL_CORPUS.md` and
 `docs/EVALUATION.md`. The harness can be pointed at a real malicious corpus
@@ -151,7 +154,8 @@ glassbox unpack packed.exe --json
 glassbox report <id> --html           # standalone evidence-linked report
 glassbox dashboard --reports          # offline case index + per-case reports
 glassbox eval corpus/demo             # labelled-corpus metrics (static)
-glassbox eval corpus/mixed            # synthetic malicious + 23 real local benign
+glassbox eval corpus/mixed-extended         # local benign + installers + synthetic malicious
+make bench-extended                 # build and evaluate the extended mixed set
 glassbox eval corpus/local-benign --mode emulation --timeout 8
 glassbox eval corpus/upx-benign --mode unpack
 make corpus-validate              # corpus sanity + coverage counts
@@ -168,7 +172,8 @@ glassbox rules test sample.exe
 `make eval` runs the static evaluator and prints accuracy, per-class scores,
 binary PR-AUC, recall at FPR ≤ 1%, calibration, confusion matrix, and ATT&CK
 technique recall. `make bench` builds the mixed set and prints the same metrics
-against it.
+against it. `make bench-extended` does the same for 36 samples: 28 clean
+benign controls plus the synthetic malicious fixtures.
 
 UPX discovery precedence: `GLASSBOX_UPX`, `PATH`, then `tools/upx` in the
 project. Fetch a standalone binary with `sh scripts/fetch_upx.sh`.
