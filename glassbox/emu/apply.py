@@ -41,6 +41,7 @@ BEHAVIOUR_FINDINGS = {
     "anti_analysis": ("GB-EMU-007", "Attempted anti-analysis checks", "low", "T1497.001"),
     "keylogging": ("GB-EMU-008", "Attempted keystroke capture", "high", "T1056.001"),
     "screen_capture": ("GB-EMU-009", "Attempted screen capture", "medium", "T1113"),
+    "registry_read": ("GB-EMU-012", "Attempted registry query", "low", "T1012"),
 }
 
 SEVERITY_BY_NAME = {
@@ -361,6 +362,8 @@ def apply_emulation(case: Case, outcome: EmulationOutcome) -> Case:
             evidence=[meta.id],
             source=Source.EMULATION,
             confidence=0.5,
+            techniques=["T1497.001", "T1027"],
+            data={"reason": "no supported API events were recorded"},
         )
 
     resources: dict[str, list[str]] = {"file": [], "network": [], "registry": []}

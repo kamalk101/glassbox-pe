@@ -145,6 +145,69 @@ def test_apply_emulation_summarizes_resolved_resources(tmp_path):
     ]
 
 
+def test_apply_emulation_covers_all_behavior_categories(tmp_path):
+    data = build_pe()
+    sample = tmp_path / "sample.exe"
+    sample.write_bytes(data)
+    info = parse_pe(data)
+    case = analyze_static(ingest(sample))
+
+    url = b"http://bad.example/gate.php"
+    file_path = b"C:\\Users\\Public\\svchost.exe"
+    registry_key = b"HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run"
+
+    report = _report()
+    calls = report["entry_points"][0]["apis"]
+    for call in calls:
+        if call["api_name"] == "KERNEL32.CreateRemoteThread":
+            call["args"] = [hex(_image_pointer(data, info, url))]
+        elif call["api_name"] == "KERNEL32.CreateFileA":
+            call["args"] = [hex(_image_pointer(data, info, file_path))]
+        elif call["api_name"] == "KERNEL32.WriteFile":
+            call["args"] = ["0x3", hex(_image_pointer(data, info, file_path))]
+        elif call["api_name"] == "KERNEL32.InternetOpenA":
+            call["args"] = [hex(_image_pointer(data, info, url))]
+        elif call["api_name"] == "ADVAPI32.RegSetValueExA":
+            call["args"] = [hex(_image_pointer(data, info, registry_key))]
+
+    # Add read-only registry access to exercise the new registry-read category.
+    calls.append(
+        {
+            "api_name": "ADVAPI32.RegOpenKeyExA",
+            "args": [hex(_image_pointer(data, info, registry_key))],
+            "ret_val": "0x0",
+            "pc": "0x1060",
+        }
+    )
+
+    dropped = tmp_path / "dropped.exe"
+    dropped.write_bytes(b"MZ" + b"\x00" * 32)
+    outcome = EmulationOutcome(
+        ran=True,
+        report=report,
+        report_path=str(tmp_path / "report.json"),
+        dropped_files=[DroppedFile(path=str(dropped), size=dropped.stat().st_size, sha256="0" * 64)],
+    )
+
+    apply_emulation(case, outcome)
+
+    categories = {e.category.value for e in case.events if e.source is Source.EMULATION}
+    assert {"process", "file", "network", "registry", "pe"} <= categories
+    resources = case.artifacts["emulation"]["resources"]
+    assert "C:\\Users\\Public\\svchost.exe" in resources["file"]
+    assert "http://bad.example/gate.php" in resources["network"]
+    assert "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run" in resources["registry"]
+
+    rule_ids = {f.rule_id for f in case.findings}
+    assert "GB-EMU-001" in rule_ids
+    assert "GB-EMU-002" in rule_ids
+    assert "GB-EMU-003" in rule_ids
+    assert "GB-EMU-006" in rule_ids
+    assert "GB-EMU-010" in rule_ids
+    assert "GB-EMU-011" in rule_ids
+    assert "GB-EMU-012" in rule_ids
+
+
 def test_apply_emulation_is_idempotent(tmp_path):
     case = _static_case(tmp_path)
     outcome = EmulationOutcome(ran=True, report=_report(), report_path=str(tmp_path / "report.json"))

@@ -81,7 +81,13 @@ failed to produce a Speakeasy report.
 - `KERNEL32.InternetOpenA` → `GB-EMU-003`;
 - `KERNEL32.CreateFileA` and `WriteFile` → file/write events;
 - `ADVAPI32.RegSetValueExA` → `GB-EMU-002`;
+- `ADVAPI32.RegOpenKeyExA` → `GB-EMU-012`;
 - runtime code segments → `GB-EMU-011`.
+
+It also checks that file, network, and registry resources are resolved from
+image-backed pointers and that the no-API-trace finding carries ATT&CK
+markers.
+
 
 This proves the emulation plumbing and classification are wired. It does **not**
 prove how often real software reaches those paths.
