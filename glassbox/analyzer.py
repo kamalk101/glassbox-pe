@@ -14,6 +14,7 @@ from .static import pe as pe_mod
 from .static import rules as rules_mod
 from .static import strings as strings_mod
 from .static import yara as yara_mod
+from .static import dotnet as dotnet_mod
 from .utils import utc_now_iso
 
 
@@ -49,6 +50,7 @@ def analyze_static(
     packer = packer_mod.detect(data, info)
 
     event_index: dict[str, str] = {}
+    dotnet = dotnet_mod.analyze(data, info.is_dotnet)
 
     # Core PE event
     event_index["pe"] = case.add_event(
@@ -57,6 +59,14 @@ def analyze_static(
         target=case.file_name,
         data=info.summary(),
     ).id
+
+    if info.is_dotnet:
+        event_index["dotnet"] = case.add_event(
+            Category.PE,
+            "dotnet_metadata",
+            target="CLR metadata",
+            data=dotnet.to_dict(),
+        ).id
 
     for section in info.sections:
         event = case.add_event(
@@ -192,6 +202,7 @@ def analyze_static(
         imports=import_analysis,
         event_index=event_index,
         file_size=intake.size,
+        dotnet=dotnet,
     )
     drafts = rules_mod.evaluate(context)
     for draft in drafts:
@@ -252,6 +263,7 @@ def analyze_static(
             **yara_result.summary(),
             "matches": [match.to_dict() for match in yara_result.matches],
         },
+        "dotnet": dotnet.to_dict(),
         "events": len(case.events),
         "findings": len(case.findings),
     }

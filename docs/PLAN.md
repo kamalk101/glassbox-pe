@@ -42,7 +42,7 @@ proof for every claim.**
       ┌──────┴──────┐       ┌──────┴───────┐      ┌──────┴───────┐
       │ Static      │       │ Emulation    │      │ VM (future)  │
       │ backend     │       │ backend      │      │ backend      │
-      │ pefile/LIEF │       │ Speakeasy    │      │ Sysmon/ETW   │
+      │ pefile/dnfile│      │ Speakeasy   │      │ Sysmon/ETW   │
       │ YARA/capa   │       │ Qiling       │      │ Procmon/pcap │
       └─────────────┘       └──────────────┘      └──────────────┘
        strength: static      strength: attempted    strength: observed
@@ -79,7 +79,7 @@ Every fact is an event:
 |---|---|---|
 | **0** | Repo, CLI, case store, schema v0, synthetic PE fixture | done |
 | **1** | Static core: PE parse, strings/IOCs, import behaviours, rules, scoring, terminal + JSON | done |
-| **2** | Rule depth, sneakiness breakdown, YARA, capa, installer detection | part done (sneakiness reasons, built-in YARA; capa still absent) |
+| **2** | Rule depth, sneakiness breakdown, YARA, capa, installer detection | part done (sneakiness reasons, built-in YARA, managed .NET metadata markers; capa still absent) |
 | **3** | Packer detection + UPX/generic unpack + before/after diff | done for UPX; common packers detected, generic unpack planned |
 | **4** | Speakeasy emulation: process/file/network/registry events, dropped files | basic done, validated on 23 local benign samples (19 ran, 4 ARM64 unsupported); network/registry coverage still thin |
 | **5** | Correlation, technique-level verdicts, evidence graph, HTML report, differential | done (correlation summary, evidence-linked HTML, unpack diff); graph UI later |
@@ -120,7 +120,8 @@ enrichment, Qiling fallback.
 - **Metrics:** PR-AUC, recall at FPR ≤ 1%, technique-level recall on synthetic
   samples, calibration check on the evidence-weighted confidence.
 - **Ablation:** static vs static+unpack vs static+emulation.
-- **Evasion:** UPX, .NET obfuscation, anti-VM sample; document failures.
+- **Evasion:** UPX, .NET obfuscation (metadata markers only; no IL analysis),
+  anti-VM sample; document failures.
 - **False positives:** installer-aware analysis and signed binaries.
 - **Future bonus:** compare emulated `attempted` behaviour with VM `observed`
   behaviour.

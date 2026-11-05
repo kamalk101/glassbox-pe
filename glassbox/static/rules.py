@@ -16,6 +16,7 @@ from .imports import (
     is_strong_anti_analysis,
     is_weak_anti_analysis,
 )
+from .dotnet import DotNetAnalysis
 from .pe import PEInfo
 from .strings import StringsResult
 
@@ -57,6 +58,7 @@ class RuleContext:
     imports: ImportAnalysis
     event_index: dict[str, str]
     file_size: int
+    dotnet: DotNetAnalysis = field(default_factory=DotNetAnalysis)
 
     def ev(self, *keys: str) -> list[str]:
         found: list[str] = []
@@ -614,6 +616,143 @@ def evaluate(ctx: RuleContext) -> list[FindingDraft]:
             )
         )
 
+    # ------------------------------------------------------------ .NET rules
+    net = ctx.dotnet
+    strong_download = [marker for marker in net.download_markers if marker in {"DownloadString", "DownloadFile", "DownloadDataAsync"}]
+    if strong_download and (
+        "ProcessStartInfo" in net.process_markers or "Process.Start" in net.process_markers
+    ):
+        findings.append(
+            FindingDraft(
+                rule_id="GB-DN-001",
+                title=".NET download-and-run capability",
+                severity=Severity.HIGH,
+                description=(
+                    "The .NET metadata combines direct-download APIs ("
+                    + ", ".join(strong_download)
+                    + ") with process-launch APIs: "
+                    + ", ".join(net.process_markers)
+                    + "."
+                ),
+                category=Category.NETWORK,
+                evidence=ctx.ev("dotnet"),
+                techniques=["T1105", "T1106"],
+                confidence=0.8,
+                data={"download_markers": net.download_markers, "process_markers": net.process_markers},
+            )
+        )
+    elif net.download_markers:
+        findings.append(
+            FindingDraft(
+                rule_id="GB-DN-002",
+                title=".NET download data APIs",
+                severity=Severity.LOW,
+                description=(
+                    "The .NET metadata references download APIs: "
+                    + ", ".join(net.download_markers)
+                    + ". This is weak on its own; many tools fetch packages or settings."
+                ),
+                category=Category.NETWORK,
+                evidence=ctx.ev("dotnet"),
+                techniques=["T1105"],
+                confidence=0.5,
+                data={"download_markers": net.download_markers},
+            )
+        )
+
+    if len(net.reflection_markers) >= 2:
+        findings.append(
+            FindingDraft(
+                rule_id="GB-DN-003",
+                title="Dynamic code generation capability",
+                severity=Severity.MEDIUM,
+                description=(
+                    "The .NET metadata references dynamic assembly generation/loading: "
+                    + ", ".join(net.reflection_markers)
+                    + ". Managed tools may use this legitimately, but it is also used "
+                    "to load payload code at runtime."
+                ),
+                category=Category.PROCESS,
+                evidence=ctx.ev("dotnet"),
+                techniques=["T1027", "T1129"],
+                confidence=0.6,
+                data={"reflection_markers": net.reflection_markers},
+            )
+        )
+
+    if "Process.Start" in net.process_markers:
+        findings.append(
+            FindingDraft(
+                rule_id="GB-DN-004",
+                title="Managed process launch capability",
+                severity=Severity.MEDIUM,
+                description=(
+                    "The .NET metadata references System.Diagnostics.Process.Start"
+                    + (" and ProcessStartInfo" if "ProcessStartInfo" in net.process_markers else "")
+                    + "."
+                ),
+                category=Category.PROCESS,
+                evidence=ctx.ev("dotnet"),
+                techniques=["T1059"],
+                confidence=0.6,
+                data={"process_markers": net.process_markers},
+            )
+        )
+    elif "ProcessStartInfo" in net.process_markers:
+        findings.append(
+            FindingDraft(
+                rule_id="GB-DN-005",
+                title="Process configuration type referenced",
+                severity=Severity.LOW,
+                description=(
+                    "The .NET metadata references ProcessStartInfo. It is used by many "
+                    "legitimate management and package tools."
+                ),
+                category=Category.PROCESS,
+                evidence=ctx.ev("dotnet"),
+                techniques=["T1059"],
+                confidence=0.4,
+                data={"process_markers": net.process_markers},
+            )
+        )
+
+    if len(net.registry_markers) >= 2:
+        findings.append(
+            FindingDraft(
+                rule_id="GB-DN-006",
+                title="Managed registry access",
+                severity=Severity.LOW,
+                description=(
+                    "The .NET metadata references registry APIs: "
+                    + ", ".join(net.registry_markers)
+                    + ". Alone this is weak evidence; installers and management tools do the same."
+                ),
+                category=Category.REGISTRY,
+                evidence=ctx.ev("dotnet"),
+                techniques=["T1112"],
+                confidence=0.45,
+                data={"registry_markers": net.registry_markers},
+            )
+        )
+    if net.obfuscator_markers:
+        findings.append(
+            FindingDraft(
+                rule_id="GB-DN-007",
+                title=".NET obfuscator markers",
+                severity=Severity.MEDIUM,
+                description=(
+                    "The .NET metadata references an obfuscation toolchain: "
+                    + ", ".join(net.obfuscator_markers)
+                    + "."
+                ),
+                category=Category.PE,
+                evidence=ctx.ev("dotnet"),
+                techniques=["T1027"],
+                confidence=0.7,
+                data={"obfuscator_markers": net.obfuscator_markers},
+            )
+        )
+
     # ---------------------------------------------------------------- File rules
     paths = strings.iocs.get("windows_paths", [])
     dropped = [path for path in paths if _looks_like_dropped_executable(path)]
@@ -713,6 +852,13 @@ RULE_CATALOG = [
     ("GB-NET-002", "Download-and-execute capability"),
     ("GB-NET-003", "Hardcoded URL and raw IP indicators"),
     ("GB-NET-004", "Cryptocurrency mining indicators"),
+    ("GB-DN-001", ".NET download-and-run capability"),
+    ("GB-DN-002", ".NET download data APIs"),
+    ("GB-DN-003", "Dynamic code generation capability"),
+    ("GB-DN-004", "Managed process launch capability"),
+    ("GB-DN-005", "Process configuration type referenced"),
+    ("GB-DN-006", "Managed registry access"),
+    ("GB-DN-007", ".NET obfuscator markers"),
     ("GB-FILE-001", "Hardcoded executable path in a writable location"),
 ]
 

@@ -45,7 +45,8 @@ python3 -m venv .venv
 ```
 
 `yara-python` is a core dependency, so a C compiler is needed to build it on
-Linux (wheels are available on most platforms). On Python 3.12+ the emulation
+Linux (wheels are available on most platforms). `dnfile` is pure Python and
+enables metadata-level .NET analysis. On Python 3.12+ the emulation
 extra pins `setuptools<81` because Speakeasy's Unicorn 1.0.2 still imports
 `distutils` and `pkg_resources`.
 
@@ -230,6 +231,7 @@ glassbox/
     rules.py      detection rules -> findings
     yara.py       YARA loading/matching -> evidence-linked findings
     yara_rules/   built-in YARA rules
+    dotnet.py     .NET CLR/metadata marker analysis
   unpack/
     service.py    detect -> choose unpacker -> validate output
     upx.py        UPX discovery and subprocess invocation
@@ -251,13 +253,17 @@ glassbox/
 
 Tests build synthetic PE fixtures in `tests/fixtures/make_pe.py`; no malware is
 required. Emulation tests are skipped if Speakeasy is not installed. The current
-suite has 57 tests, including corpus metrics, HTML escaping, dashboard
-generation, UPX unpacking with a fake unpacker, YARA matching, and the
-evaluation ablation harness.
+suite has 59 tests, including corpus metrics, HTML escaping, dashboard
+generation, UPX unpacking with a fake unpacker, YARA matching, .NET metadata
+markers, and the evaluation ablation harness.
 
 ## Current limitations
 
+- .NET analysis reads CLR metadata at the PE level; it does not decompile or
+  run IL. Findings describe capabilities and markers, not proof of intent. Only
+  one .NET control is currently available in the extended corpus.
 - Emulated API arguments are logged, but pointers are not yet resolved to strings.
+
 - Child processes are not truly executed; dropped files are captured and queued.
 - Emulation is best-effort and can be evaded by anti-analysis samples
   (`GB-EMU-000` flags this). Speakeasy also rejects ARM64 samples with a clear

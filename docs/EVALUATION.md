@@ -12,7 +12,7 @@ engineering measurements, not a benchmark of real-world detection quality.
 |---|---|---|
 | Synthetic demo set (`corpus/demo`, 2 clean, 3 suspicious, 5 synthetic malicious) | 10 | 90% accuracy; binary precision 100%, recall 87.5%, F1 0.933; PR-AUC 0.975; recall at FPR ≤ 1% = 87.5% at score ≥ 0.25; technique recall 96% (24/25). One false negative: `evasive-timing-only.exe`. Zero static false positives on synthetic clean fixtures. |
 | Real local benign corpus (`corpus/local-benign`: trusted Windows PEs from installed VS Code and Python launcher packages) | 23 | 0 false positives, 23/23 clean. PR-AUC / recall@FPR are undefined because the set contains no positives. After a 20-point Authenticode-presence mitigation, previously flagged Microsoft/VS Code tools are clean. |
-| Public benign installers (`corpus/benign-installers`: official pinned 7-Zip, Inno Setup, Python, Notepad++, NuGet) | 5 | 0 false positives, 5/5 clean. Detects two installer hints (`NSIS`, `Inno Setup`) and one .NET assembly. |
+| Public benign installers (`corpus/benign-installers`: official pinned 7-Zip, Inno Setup, Python, Notepad++, NuGet) | 5 | 0 false positives, 5/5 clean. Detects two installer hints (`NSIS`, `Inno Setup`) and one .NET assembly. `nuget.exe` now triggers managed-code findings but remains clean after scoring. |
 | Extended mixed set (`corpus/mixed-extended`: 28 clean + 3 suspicious + 5 synthetic malicious) | 36 | 97.2% accuracy; binary precision 100%, recall 87.5%, F1 0.933; PR-AUC 0.903; recall at FPR ≤ 1% = 87.5% at score ≥ 0.25; technique recall 96% (24/25). Only false negative: `evasive-timing-only.exe`. |
 | Mixed set (`corpus/mixed`: 23 real benign + 8 synthetic suspicious/malicious) | 31 | 96.8% accuracy; binary precision 100%, recall 87.5%, F1 0.933; PR-AUC 0.907; recall at FPR ≤ 1% = 87.5% at score ≥ 0.25; technique recall 96% (24/25). Only false negative: `evasive-timing-only.exe`. |
 | UPX unpack ablation (`corpus/upx-benign`: real UPX-packed 7-Zip extractor) | 1 | Raw static verdict: suspicious (31). After `--mode unpack`: child score 15, predicted clean. Unpack resolves the packed-stub false positive. |
@@ -55,8 +55,10 @@ Use `docs/REAL_CORPUS.md` to expand them in an isolated lab.
    passes.
 3. **Non-UPX packers** are detected but not unpacked; they stay `unsupported`.
    Static-only triage of those samples remains weak.
-4. **.NET assemblies** are parsed only at the native PE level; managed IL is not
-   analyzed.
+4. **.NET assemblies are parsed at PE and CLR metadata level only.** The new
+   analyzer scans the `#Strings`/`#US` heaps for identifiers and literals, but
+   it does not decompile IL, resolve types/members, or model control flow. It
+   therefore cannot distinguish semantically safe API use from malicious use.
 5. **Emulation coverage is uneven.** In the 23-sample benign set it reached
    `process`/`file` categories only; no `network` or `registry` behaviour was
    observed. The pipeline logs those categories when present, but this set does
