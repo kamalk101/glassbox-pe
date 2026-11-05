@@ -120,9 +120,11 @@ make demo
 
 `unpack` detects UPX, ASPack, MPRESS, Themida, VMProtect, Enigma, Petite, and
 NsPack by section names/markers, plus a high-entropy/low-import heuristic. UPX
-is unpacked automatically; other packers are reported as unsupported. The
-unpacked child gets its own case, a before/after diff (sections, imports,
-findings, score), and a `GB-UNP-001` finding when hidden capabilities appear.
+is unpacked automatically. Generic extraction is attempted for common packers
+and for files containing an embedded or appended PE payload; other packers are
+reported as unsupported. The unpacked child gets its own case, a before/after
+diff (sections, imports, findings, score), and a `GB-UNP-001` finding when
+hidden capabilities appear.
 
 `glassbox eval` reads a corpus directory containing `manifest.json` (or a
 manifest path directly) and reports 3-class accuracy, per-class precision/recall,
@@ -242,6 +244,7 @@ glassbox/
   unpack/
     service.py    detect -> choose unpacker -> validate output
     upx.py        UPX discovery and subprocess invocation
+    generic.py    conservative embedded/appended PE extraction
     diff.py       packed vs unpacked child comparison
   emu/
     speakeasy_backend.py  subprocess runner + report/dropped-file capture
@@ -260,10 +263,10 @@ glassbox/
 
 Tests build synthetic PE fixtures in `tests/fixtures/make_pe.py`; no malware is
 required. Emulation tests are skipped if Speakeasy is not installed. The current
-suite has 64 tests, including corpus metrics, HTML escaping, dashboard
-generation, UPX unpacking with a fake unpacker, pointer resolution, YARA
-matching, .NET metadata markers, the real-corpus runner, interactive report
-sections, and the evaluation ablation harness.
+suite has 66 tests, including corpus metrics, HTML escaping, dashboard
+generation, UPX unpacking with a fake unpacker, generic embedded-PE unpacking,
+pointer resolution, YARA matching, .NET metadata markers, the real-corpus
+runner, interactive report sections, and the evaluation ablation harness.
 
 ## Current limitations
 
@@ -276,8 +279,9 @@ sections, and the evaluation ablation harness.
 - Emulation is best-effort and can be evaded by anti-analysis samples
   (`GB-EMU-000` flags this). Speakeasy also rejects ARM64 samples with a clear
   error; 19/23 local benign samples ran and 4 ARM64 samples did not.
-- Only UPX unpacking is implemented; other packers are detected and marked
-  unsupported. Child payloads are analyzed one level deep, not recursively.
+- Only UPX unpacking is implemented as a true unpacker. Generic extraction
+  recovers embedded or appended PE payloads, but many packers still report
+  `unsupported`. Child payloads are analyzed one level deep, not recursively.
 - Correlation is a report-level summary; it does not yet build a full graph
   database. The dashboard is static and offline (no server or persistent
   application). Case reports now include an interactive evidence graph,

@@ -8,6 +8,7 @@ from pathlib import Path
 from ..static.packer import PackerInfo, detect
 from ..static.pe import parse_pe
 from ..utils import is_probably_pe
+from .generic import unpack_generic
 from .upx import find_upx, unpack_upx
 
 
@@ -79,19 +80,44 @@ def unpack_sample(
     detected = packer or detect(data, info)
 
     if not detected.name:
+        success, output_path, message = unpack_generic(data, output)
+        if success:
+            return UnpackResult(
+                status="unpacked",
+                success=True,
+                packer=detected,
+                method="generic-embedded-pe",
+                output_path=output_path,
+                tool="glassbox-generic",
+                stdout=message,
+            )
         return UnpackResult(
             status="not_packed",
             success=False,
             packer=detected,
-            error="no known packer detected",
+            error="no known packer detected and no generic PE payload was found",
         )
 
     if not detected.upx:
+        success, output_path, message = unpack_generic(data, output)
+        if success:
+            return UnpackResult(
+                status="unpacked",
+                success=True,
+                packer=detected,
+                method="generic-embedded-pe",
+                output_path=output_path,
+                tool="glassbox-generic",
+                stdout=message,
+            )
         return UnpackResult(
             status="unsupported",
             success=False,
             packer=detected,
-            error=f"detected {detected.name}; only UPX unpacking is supported in Phase 3",
+            error=(
+                f"detected {detected.name}; only UPX is unpacked automatically, "
+                "and generic extraction found no recoverable PE payload"
+            ),
         )
 
     if find_upx() is None:

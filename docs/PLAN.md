@@ -80,7 +80,7 @@ Every fact is an event:
 | **0** | Repo, CLI, case store, schema v0, synthetic PE fixture | done |
 | **1** | Static core: PE parse, strings/IOCs, import behaviours, rules, scoring, terminal + JSON | done |
 | **2** | Rule depth, sneakiness breakdown, YARA, capa, installer detection | part done (sneakiness reasons, built-in YARA, managed .NET metadata markers; capa still absent) |
-| **3** | Packer detection + UPX/generic unpack + before/after diff | done for UPX; common packers detected, generic unpack planned |
+| **3** | Packer detection + UPX/generic unpack + before/after diff | done for UPX; generic embedded/appended-PE extraction added; common packers detected, full generic unpack planned |
 | **4** | Speakeasy emulation: process/file/network/registry events, dropped files | basic done, validated on 23 local benign samples (19 ran, 4 ARM64 unsupported); image-backed pointer resolution and resource limits added; network/registry coverage still thin |
 | **5** | Correlation, technique-level verdicts, evidence graph, HTML report, differential | done (correlation summary, evidence-linked HTML, unpack diff); graph UI later |
 | **6** | Corpus, evaluation (PR-AUC, per-technique recall, evasion), demo script | partial (synthetic + local benign + mixed set; ablation modes, staging/validation/FP-study tooling; real malicious samples pending) |
@@ -93,7 +93,7 @@ Static core, YARA, sneakiness score, UPX unpack, emulation in four categories,
 correlation, technique verdicts, JSON + HTML, CLI workflow.
 
 ### Strong
-Generic unpack, installer recursion, differential/trojanized-update detection,
+Generic unpack for embedded/appended PE, installer recursion, differential/trojanized-update detection,
 STIX export, similarity search (imphash/ssdeep/TLSH), counterfactuals, batch mode.
 
 ### Stretch
