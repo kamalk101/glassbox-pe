@@ -126,6 +126,108 @@
     .source-static, .strength-static { color: var(--cyan); }
     .source-emulation, .strength-attempted { color: var(--yellow); }
     .source-vm, .strength-observed { color: var(--green); }
+    .report-nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .4rem;
+      margin: 0 0 1rem;
+      padding: .55rem;
+      border: 1px solid var(--line);
+      border-radius: .65rem;
+      background: rgba(18, 26, 46, .65);
+    }
+    .report-nav a {
+      color: var(--cyan);
+      padding: .25rem .5rem;
+      border-radius: .35rem;
+      font-size: .86rem;
+    }
+    .report-nav a:hover { background: var(--panel-2); text-decoration: none; }
+    .interactive-card { padding-right: 0; }
+    .hint { color: var(--muted); font-size: .86rem; margin-top: -.35rem; }
+    .toolbar { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; margin: .65rem 0; }
+    .toolbar input[type="search"] {
+      min-width: 15rem;
+      padding: .32rem .5rem;
+      color: var(--text);
+      background: #080d19;
+      border: 1px solid var(--line);
+      border-radius: .4rem;
+    }
+    .button {
+      padding: .28rem .55rem;
+      color: var(--text);
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+      border-radius: .4rem;
+      cursor: pointer;
+    }
+    .button:hover, .button.active { border-color: var(--cyan); color: var(--cyan); }
+    .button:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+    .graph-viewport {
+      max-height: 620px;
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: .55rem;
+      background: #080d19;
+    }
+    .graph-viewport svg { display: block; }
+    .graph-inspector {
+      margin-top: .55rem;
+      padding: .55rem .65rem;
+      border: 1px solid var(--line);
+      border-left: 3px solid var(--cyan);
+      border-radius: .45rem;
+      background: var(--panel-2);
+      color: var(--muted);
+      font-size: .86rem;
+    }
+    .graph-node { cursor: pointer; transition: opacity .15s ease; }
+    .graph-node.dimmed { opacity: .13; }
+    .graph-node.selected rect { stroke: var(--cyan); stroke-width: 3; }
+    .graph-source-attempted text { fill: #ffe3a6; }
+    .graph-source-static text { fill: #d8f8ff; }
+    .graph-kind-finding rect { stroke: #ffd166; fill: #1a2340; }
+    .graph-kind-event rect { stroke: #5ee7ff; fill: #101a32; }
+    .graph-kind-parent rect { stroke: #d38bff; fill: #18132b; }
+    .graph-edge { stroke: #425477; stroke-width: 1.5; }
+    .graph-edge.evidence-support { stroke-opacity: .68; }
+    .graph-edge.child { stroke-opacity: .5; stroke-dasharray: 5 5; }
+    .graph-edge.selected { stroke: var(--cyan); stroke-width: 2.4; stroke-opacity: 1; }
+    .timeline-scroll {
+      display: flex;
+      gap: .45rem;
+      overflow-x: auto;
+      padding: .4rem 0 .2rem;
+      scrollbar-color: var(--line) #080d19;
+    }
+    .timeline-item {
+      flex: 0 0 13rem;
+      padding: .45rem .55rem;
+      border: 1px solid var(--line);
+      border-radius: .45rem;
+      background: var(--panel-2);
+      color: var(--text);
+      text-decoration: none;
+    }
+    .timeline-item:hover { border-color: var(--cyan); text-decoration: none; }
+    .timeline-item .seq { color: var(--cyan); font-family: var(--mono); font-size: .72rem; }
+    .timeline-item .action { display: block; margin: .18rem 0; color: var(--text); font-family: var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .timeline-item .meta { color: var(--muted); font-size: .72rem; }
+    .timeline-static { border-left: 3px solid var(--cyan); }
+    .timeline-attempted { border-left: 3px solid var(--yellow); }
+    .timeline-item.hidden { display: none; }
+    .diff-table tr.status-same { opacity: .62; }
+    .diff-added { color: var(--green); }
+    .diff-removed { color: var(--red); }
+    .diff-same { color: var(--muted); }
+    @media print {
+      .report-nav, .toolbar, .button { display: none !important; }
+      .graph-viewport { max-height: none; overflow: visible; }
+      .graph-node.dimmed { opacity: 1; }
+      .timeline-scroll { display: block; }
+      .timeline-item { display: inline-block; width: 45%; }
+    }
     .finding {
       margin-top: .9rem;
       padding: 1rem 1.1rem;
@@ -201,7 +303,10 @@
   </header>
 
   <main>
-    <section class="card">
+    <nav class="report-nav" aria-label="Case report sections">
+      <a href="#assessment">Assessment</a><a href="#correlation">ATT&amp;CK</a><a href="#evidence-graph">Graph</a><a href="#timeline">Timeline</a><a href="#findings">Findings</a><a href="#events">Events</a><a href="#emulation">Emulation</a>{% if view.unpack %}<a href="#unpack-diff">Diff</a>{% endif %}<a href="#details">Details</a>
+    </nav>
+    <section class="card" id="assessment">
       <h2>Assessment</h2>
       {% if view.verdict %}
         <p>{{ view.verdict.summary }}</p>
@@ -220,7 +325,7 @@
       </div>
     </section>
 
-    <div class="grid">
+    <div class="grid" id="details">
       <section class="card">
         <h2>File facts</h2>
         <table class="facts">
@@ -249,7 +354,7 @@
       </section>
     </div>
 
-    <section class="card">
+    <section class="card" id="correlation">
       <h2>Correlation and ATT&amp;CK techniques</h2>
       {% if view.correlation.corroborated_techniques %}
       <p><span class="status status-corroborated">Corroborated</span>
@@ -288,8 +393,62 @@
       {% endif %}
     </section>
 
+    <section class="card" id="evidence-graph">
+      <h2>Evidence graph</h2>
+      <p class="hint">Nodes are findings and evidence events. Select a node to inspect it, or filter the graph by source.</p>
+      <div class="toolbar" aria-label="Graph controls">
+        <input id="graph-search" type="search" placeholder="Search findings and events" aria-label="Search graph">
+        <button class="button active" type="button" data-source-filter="all">All</button>
+        <button class="button" type="button" data-source-filter="static">Static</button>
+        <button class="button" type="button" data-source-filter="emulation">Attempted</button>
+        <button class="button" type="button" id="graph-reset">Reset</button>
+        <button class="button" type="button" id="graph-zoom-in">Zoom +</button>
+        <button class="button" type="button" id="graph-zoom-out">Zoom −</button>
+      </div>
+      <div class="graph-viewport" id="graph-viewport">
+        <svg id="event-graph" width="{{ view.event_graph.width }}" height="{{ view.event_graph.height }}" viewBox="0 0 {{ view.event_graph.width }} {{ view.event_graph.height }}" role="img" aria-label="Evidence graph of findings and events">
+          <g id="graph-canvas">
+            <g id="graph-edges">
+              {% for edge in view.event_graph.edges %}
+              <line class="graph-edge {{ edge.kind }}" data-source="{{ edge.kind }}" data-from="{{ edge.source }}" data-target="{{ edge.target }}" x1="{{ edge.x1 }}" y1="{{ edge.y1 }}" x2="{{ edge.x2 }}" y2="{{ edge.y2 }}" />
+              {% endfor %}
+            </g>
+            <g id="graph-nodes">
+              {% for node in view.event_graph.nodes %}
+              <g class="graph-node graph-kind-{{ node.kind }} graph-source-{{ node.source }}" data-id="{{ node.id }}" data-source="{{ node.source }}" data-search="{{ node.search }}" tabindex="0" role="button" transform="translate({{ node.x }} {{ node.y }})">
+                <rect width="{{ view.event_graph.node_width }}" height="44" rx="9" ry="9"></rect>
+                <text class="node-id" x="12" y="15" font-family="ui-monospace, monospace" font-size="11">{{ node.id }}</text>
+                {% for line in node.label_lines %}<text class="node-label" x="12" y="{{ 28 + loop.index0 * 10 }}" font-size="11" fill="currentColor">{{ line }}</text>{% endfor %}
+              </g>
+              {% endfor %}
+            </g>
+          </g>
+        </svg>
+      </div>
+      <div class="graph-inspector" id="graph-inspector" aria-live="polite">Select a node to inspect its evidence.</div>
+    </section>
+
+    <section class="card" id="timeline">
+      <h2>Events timeline</h2>
+      <p class="hint">Sequence is the order in which GlassBox recorded the events; it is not wall-clock time.</p>
+      <div class="toolbar" aria-label="Timeline controls">
+        <button class="button active" type="button" data-timeline-filter="all">All</button>
+        <button class="button" type="button" data-timeline-filter="static">Static</button>
+        <button class="button" type="button" data-timeline-filter="emulation">Attempted</button>
+      </div>
+      <div class="timeline-scroll" id="event-timeline">
+        {% for event in view.events %}
+        <a class="timeline-item timeline-{{ event.source }}" href="#{{ event.id }}" data-source="{{ event.source }}">
+          <span class="seq">#{{ event.seq }} · {{ event.source }}</span>
+          <span class="action">{{ event.action }}</span>
+          <span class="meta">{{ event.category }} · {{ event.strength }}{% if event.technique %} · {{ event.technique }}{% endif %}</span>
+        </a>
+        {% endfor %}
+      </div>
+    </section>
+
     {% if view.unpack %}
-    <section class="card">
+    <section class="card" id="unpack-diff">
       <h2>Unpacking and differential</h2>
       <table class="facts">
         <tr><td>status</td><td>{{ view.unpack.status }}</td></tr>
@@ -303,6 +462,25 @@
       {% if view.unpack.packer.get("evidence") %}
       <div class="chips">
         {% for item in view.unpack.packer.get("evidence") %}<span class="chip">{{ item }}</span>{% endfor %}
+      </div>
+      {% endif %}
+
+      {% if view.unpack.comparison %}
+      <div class="toolbar" aria-label="Diff controls">
+        <button class="button active" type="button" data-diff-filter="all">All rows</button>
+        <button class="button" type="button" data-diff-filter="changed">Changed only</button>
+      </div>
+      <div class="table-wrap">
+        <table class="data diff-table">
+          <thead><tr><th>Metric</th><th>Before</th><th>After</th><th>Delta</th></tr></thead>
+          <tbody>
+            {% for row in view.unpack.comparison %}
+            <tr data-status="{{ row.status }}" class="status-{{ row.status }}">
+              <td>{{ row.label }}</td><td>{{ row.before }}</td><td>{{ row.after }}</td><td>{% if row.delta == "changed" %}changed{% elif row.delta == "same" %}same{% else %}{{ row.delta }}{% endif %}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
       </div>
       {% endif %}
 
@@ -333,7 +511,7 @@
     </section>
     {% endif %}
 
-    <section class="card">
+    <section class="card" id="findings">
       <h2>Findings</h2>
       {% if view.findings %}
         {% for finding in view.findings %}
@@ -368,15 +546,16 @@
       {% endif %}
     </section>
 
-    <section class="card">
+    <section class="card" id="events">
       <h2>Evidence events</h2>
       {% if view.events %}
       <div class="table-wrap">
         <table class="data">
-          <thead><tr><th>ID</th><th>Strength</th><th>Source</th><th>Category</th><th>Action</th><th>Target</th><th>Technique</th><th>Data</th></tr></thead>
+          <thead><tr><th>#</th><th>ID</th><th>Strength</th><th>Source</th><th>Category</th><th>Action</th><th>Target</th><th>Technique</th><th>Data</th></tr></thead>
           <tbody>
           {% for event in view.events %}
             <tr id="{{ event.id }}">
+              <td class="mono">{{ event.seq }}</td>
               <td class="mono">{{ event.id }}</td>
               <td><span class="badge strength-{{ event.strength }}">{{ event.strength }}</span></td>
               <td>{{ event.source }}</td>
@@ -465,7 +644,7 @@
       {% endif %}
     </section>
 
-    <section class="card">
+    <section class="card" id="emulation">
       <h2>Emulation</h2>
       {% if view.emulation.get("ran") %}
       <div class="metric-row">
@@ -539,6 +718,83 @@
   <footer>
     Generated {{ generated_at }} by GlassBox PE {{ case.tool_version }} · evidence supports conclusions, not certainty.
   </footer>
+<script>
+(() => {
+  const root = document.getElementById('event-graph');
+  if (root) {
+    const nodes = [...root.querySelectorAll('.graph-node')];
+    const edges = [...root.querySelectorAll('.graph-edge')];
+    const inspector = document.getElementById('graph-inspector');
+    const search = document.getElementById('graph-search');
+    const sourceButtons = [...document.querySelectorAll('[data-source-filter]')];
+    const viewport = document.getElementById('graph-viewport');
+    const canvas = document.getElementById('graph-canvas');
+    let zoom = 1;
+    let source = 'all';
+
+    function nodeMatches(node) {
+      const query = (search?.value || '').trim().toLowerCase();
+      const sourcePass = source === 'all' || node.dataset.source === source;
+      const searchPass = !query || (node.dataset.search || '').includes(query);
+      return sourcePass && searchPass;
+    }
+    function applyGraphFilter() {
+      nodes.forEach(node => node.classList.toggle('dimmed', !nodeMatches(node)));
+      const visible = new Set(nodes.filter(nodeMatches).map(node => node.dataset.id));
+      edges.forEach(edge => edge.classList.toggle('dimmed', !(visible.has(edge.dataset.from) && visible.has(edge.dataset.target))));
+    }
+    function selectNode(node) {
+      nodes.forEach(item => item.classList.toggle('selected', item === node));
+      const text = node.querySelectorAll('.node-label');
+      const label = Array.from(text).map(item => item.textContent).join(' ');
+      inspector.innerHTML = `<strong>${node.dataset.id}</strong> — ${label}`;
+      edges.forEach(edge => edge.classList.remove('selected'));
+    }
+    root.addEventListener('click', event => {
+      const node = event.target.closest('.graph-node');
+      if (node) selectNode(node);
+    });
+    root.addEventListener('keydown', event => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      const node = event.target.closest('.graph-node');
+      if (node) { event.preventDefault(); selectNode(node); }
+    });
+    if (search) search.addEventListener('input', applyGraphFilter);
+    sourceButtons.forEach(button => button.addEventListener('click', () => {
+      source = button.dataset.sourceFilter;
+      sourceButtons.forEach(item => item.classList.toggle('active', item === button));
+      applyGraphFilter();
+    }));
+    document.getElementById('graph-reset')?.addEventListener('click', () => {
+      source = 'all'; zoom = 1;
+      if (search) search.value = '';
+      nodes.forEach(node => node.classList.remove('dimmed', 'selected'));
+      edges.forEach(edge => edge.classList.remove('dimmed', 'selected'));
+      if (canvas) canvas.style.transform = 'scale(1)';
+      sourceButtons.forEach(item => item.classList.toggle('active', item.dataset.sourceFilter === 'all'));
+      if (inspector) inspector.textContent = 'Select a node to inspect its evidence.';
+    });
+    document.getElementById('graph-zoom-in')?.addEventListener('click', () => { zoom = Math.min(1.6, zoom + 0.2); canvas.style.transform = `scale(${zoom})`; });
+    document.getElementById('graph-zoom-out')?.addEventListener('click', () => { zoom = Math.max(0.6, zoom - 0.2); canvas.style.transform = `scale(${zoom})`; });
+  }
+
+  document.querySelectorAll('[data-timeline-filter]').forEach(button => button.addEventListener('click', () => {
+    const wanted = button.dataset.timelineFilter;
+    document.querySelectorAll('[data-timeline-filter]').forEach(item => item.classList.toggle('active', item === button));
+    document.querySelectorAll('#event-timeline .timeline-item').forEach(item => {
+      item.classList.toggle('hidden', wanted !== 'all' && item.dataset.source !== wanted);
+    });
+  }));
+
+  document.querySelectorAll('[data-diff-filter]').forEach(button => button.addEventListener('click', () => {
+    const wanted = button.dataset.diffFilter;
+    document.querySelectorAll('[data-diff-filter]').forEach(item => item.classList.toggle('active', item === button));
+    document.querySelectorAll('.diff-table tr').forEach(row => {
+      row.hidden = wanted === 'changed' && row.dataset.status === 'same';
+    });
+  }));
+})();
+</script>
 </div>
 </body>
 </html>

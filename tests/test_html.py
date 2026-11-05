@@ -24,9 +24,14 @@ def test_html_report_has_offline_structure_and_evidence(tmp_path):
     assert "Correlation and ATT&amp;CK techniques" in html
     assert "T1055" in html
     assert "2026-01-01 00:00 UTC" in html
-    # The report is a single offline document: no script blocks or CDN assets.
-    assert "<script" not in html.lower()
+    # Offline report: one intentional inline module, no CDN assets.
+    assert html.count("<script>") == 1
+    assert "<script src" not in html.lower()
     assert "https://" not in html.lower()
+    assert 'id="evidence-graph"' in html
+    assert 'id="event-timeline"' in html
+    assert "graph-node" in html
+    assert "Events timeline" in html
     # Event targets are escaped by the template, not injected as markup.
     assert "<script>alert" not in html
     assert "&lt;script&gt;alert" in html
@@ -42,3 +47,44 @@ def test_html_view_includes_static_and_correlation_sections(tmp_path):
     assert view["import_groups"]
     assert view["correlation"]["findings"] == len(case.findings)
     assert view["correlation"]["events"] == len(case.events)
+    assert len(view["event_graph"]["nodes"]) == len(case.events) + len(case.findings)
+
+
+def test_html_report_renders_unpack_diff_viewer(tmp_path):
+    case = _analyzed(tmp_path)
+    case.artifacts["unpack"] = {
+        "status": "unpacked",
+        "method": "upx",
+        "packer": {"name": "UPX", "confidence": "high", "evidence": ["upx0"]},
+        "tool": "upx",
+        "child_case_id": "child-001",
+        "new_imports": ["CreateFileA", "WSAConnect"],
+        "removed_imports": [],
+        "new_sections": [".upx"],
+        "resolved_findings": [],
+        "new_findings": ["GB-PROC-001"],
+        "diff": {
+            "child_case_id": "child-001",
+            "size_delta": 12,
+            "new_imports": ["CreateFileA", "WSAConnect"],
+            "removed_imports": [],
+            "new_sections": [".upx"],
+            "removed_sections": [],
+            "new_findings": ["GB-PROC-001"],
+            "resolved_findings": [],
+            "parent_verdict": "clean",
+            "child_verdict": "malicious",
+            "parent_score": 20,
+            "child_score": 55,
+            "parent_confidence": 0.5,
+            "child_confidence": 0.8,
+        },
+    }
+
+    html = render_html(case, generated_at="2026-01-01 00:00 UTC")
+
+    assert 'id="unpack-diff"' in html
+    assert "Changed only" in html
+    assert "CreateFileA" in html
+    assert "GB-PROC-001" in html
+    assert "55</td>" in html or "risk score" in html

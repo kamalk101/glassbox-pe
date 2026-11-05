@@ -213,7 +213,7 @@ cases/index.html                  # dashboard index (after `dashboard`)
 | `analyze` | working (static + emulation) |
 | `cases list/show/delete` | working |
 | `report --json` | working |
-| `report --html` | working (standalone, offline, evidence-linked) |
+| `report --html` | working (standalone, offline, interactive graph/timeline/diff) |
 | `dashboard` | working (offline index, search/filter, per-case reports) |
 | `rules list/test` | working |
 | `rules yara` | working |
@@ -260,10 +260,10 @@ glassbox/
 
 Tests build synthetic PE fixtures in `tests/fixtures/make_pe.py`; no malware is
 required. Emulation tests are skipped if Speakeasy is not installed. The current
-suite has 63 tests, including corpus metrics, HTML escaping, dashboard
+suite has 64 tests, including corpus metrics, HTML escaping, dashboard
 generation, UPX unpacking with a fake unpacker, pointer resolution, YARA
-matching, .NET metadata markers, the real-corpus runner, and the evaluation
-ablation harness.
+matching, .NET metadata markers, the real-corpus runner, interactive report
+sections, and the evaluation ablation harness.
 
 ## Current limitations
 
@@ -279,8 +279,10 @@ ablation harness.
 - Only UPX unpacking is implemented; other packers are detected and marked
   unsupported. Child payloads are analyzed one level deep, not recursively.
 - Correlation is a report-level summary; it does not yet build a full graph
-  database. The dashboard is static and offline (no server, timeline, or
-  interactive evidence graph yet).
+  database. The dashboard is static and offline (no server or persistent
+  application). Case reports now include an interactive evidence graph,
+  timeline, and unpack diff viewer, but there is no live server or multi-case
+  timeline.
 - The evaluation includes real **benign** binaries, but no real **malicious**
   samples have been evaluated or executed. The local benign corpus is also not
   representative. Real-malware numbers remain outstanding.
