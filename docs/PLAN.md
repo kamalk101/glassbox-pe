@@ -138,9 +138,12 @@ real-benign, mixed, installer, and UPX ablation sets.
 `scripts/fetch_benign_installers.py` materialises five pinned public benign
 installer binaries. `scripts/stage_real_corpus.py`,
 `scripts/validate_corpus.py`, and `scripts/false_positive_study.py` are the
-isolated real-corpus workflow. See `docs/REAL_CORPUS.md` and
-`docs/EVALUATION.md`. The harness can be pointed at a real malicious corpus
-once samples are lawfully available.
+isolated real-corpus workflow. `scripts/run_real_corpus_evaluation.py`
+validates provenance and integrity, then runs static/unpack/optional emulation
+and writes a measurement report without executing a sample. See
+`docs/REAL_CORPUS.md`, `docs/ISOLATED_LAB.md`, and `docs/EVALUATION.md`. The
+harness can be pointed at a real malicious corpus once samples are lawfully
+available.
 
 ## Current commands
 
@@ -161,6 +164,7 @@ glassbox eval corpus/local-benign --mode emulation --timeout 8
 glassbox eval corpus/upx-benign --mode unpack
 make corpus-validate              # corpus sanity + coverage counts
 make fp-study                     # false-positive slices by signature/packer/etc.
+make real-eval CORPUS=/path/to/real-corpus ARGS="--emulation --timeout 60"
 python scripts/stage_real_corpus.py /path/to/samples --confirm-malware
 glassbox rules yara                   # built-in YARA status
 glassbox cases list

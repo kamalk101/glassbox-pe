@@ -1,7 +1,9 @@
 # Real corpus evaluation workflow
 
 This document describes how to evaluate GlassBox against **operator-provided
-real malware** without executing anything on a normal host. As of 2026-11-05,
+real malware** without executing anything on a normal host. See also
+`docs/ISOLATED_LAB.md` for the full lab procedure and minimum corpus gates.
+As of 2026-11-05,
 the repository contains no real malware and none has been executed. The
 staging tooling is ready; the samples must come from an isolated lab.
 
@@ -78,11 +80,13 @@ staged sample; edit the manifest for per-sample technique sets.
 ## Validate and evaluate
 
 ```bash
-python scripts/validate_corpus.py corpus/real-malware
+python scripts/validate_corpus.py corpus/real-malware --require-provenance
 python scripts/false_positive_study.py corpus/real-malware
 glassbox eval corpus/real-malware --mode static
 glassbox eval corpus/real-malware --mode unpack
-glassbox eval corpus/real-malware --mode emulation --timeout 60
+# only in the isolated lab
+python scripts/run_real_corpus_evaluation.py corpus/real-malware \
+  --output-dir /secure-output --emulation --timeout 60
 ```
 
 `validate_corpus.py` checks manifest shape, file presence, non-PE files,

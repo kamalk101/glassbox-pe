@@ -111,6 +111,9 @@ make corpus-mixed && glassbox eval corpus/mixed
 make corpus-installers
 make bench-extended
 
+# Isolated real-corpus measurement (requires lawful samples in the lab)
+make real-eval CORPUS=/path/to/real-corpus ARGS="--emulation --timeout 60"
+
 # One-shot class demo: static scan + HTML report + corpus metrics
 make demo
 ```
@@ -161,9 +164,13 @@ The corpus tooling builds several evaluation sets:
 - `scripts/stage_real_corpus.py` — stages operator-provided real samples into
   a private, ignored corpus directory, validates PE formatting, deduplicates,
   and creates a manifest. See `docs/REAL_CORPUS.md` for the safety workflow.
+- `scripts/run_real_corpus_evaluation.py` (`make real-eval`) — in an
+  isolated lab, validates provenance/integrity, runs static and UPX-unpack
+  evaluation (optionally Speakeasy), and writes a report with mispredictions.
+  See `docs/ISOLATED_LAB.md` and `docs/REAL_CORPUS.md`.
 - `scripts/validate_corpus.py` (`make corpus-validate`) — checks manifest shape,
-  duplicates, labels, ATT&CK IDs, and reports signed / installer / .NET /
-  packer coverage.
+  duplicates, labels, ATT&CK IDs, provenance, imphash clusters, permissions,
+  and reports signed / installer / .NET / packer coverage.
 - `scripts/false_positive_study.py` (`make fp-study`) — runs the static path
   and slices results by signature, installer, .NET, packer, and family.
 
@@ -253,9 +260,9 @@ glassbox/
 
 Tests build synthetic PE fixtures in `tests/fixtures/make_pe.py`; no malware is
 required. Emulation tests are skipped if Speakeasy is not installed. The current
-suite has 59 tests, including corpus metrics, HTML escaping, dashboard
+suite has 60 tests, including corpus metrics, HTML escaping, dashboard
 generation, UPX unpacking with a fake unpacker, YARA matching, .NET metadata
-markers, and the evaluation ablation harness.
+markers, the real-corpus runner, and the evaluation ablation harness.
 
 ## Current limitations
 

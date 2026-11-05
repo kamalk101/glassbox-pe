@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Validate and summarize a labelled PE corpus without executing samples.
 
-Checks: manifest shape, labels, ATT&CK IDs, missing files, non-PE files, duplicate
-SHA-256, and per-group coverage (signed / unsigned / installer / .NET / packer /
-family). Prints a compact report or JSON.
+Checks: manifest shape, labels, ATT&CK IDs, missing files, non-PE files,
+duplicate SHA-256, declared SHA-256 mismatches, duplicate import hashes, family
+skew, provenance for non-clean labels, file/directory permissions, and per-group
+coverage. It never executes a sample.
 """
 
 from __future__ import annotations
@@ -12,7 +13,9 @@ import argparse
 import hashlib
 import json
 import re
+import stat
 import sys
+import os
 from collections import Counter
 from pathlib import Path
 
@@ -20,6 +23,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+import pefile
 from glassbox.ingest import ingest
 from glassbox.static.pe import parse_pe
 
@@ -40,10 +44,28 @@ def _group(name: str, value: object) -> str:
     return f"{name}={label}"
 
 
+def _imphash(path: Path) -> str | None:
+    try:
+        with pefile.PE(str(path), fast_load=True) as pe:
+            return pe.get_imphash() or None
+    except Exception:
+        return None
+
+
+def _mode(path: Path) -> int:
+    return stat.S_IMODE(path.stat().st_mode)
+    return f"{name}={label}"
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("corpus", help="corpus directory or manifest.json")
     parser.add_argument("--json", action="store_true")
+    parser.add_argument(
+        "--require-provenance",
+        action="store_true",
+        help="fail non-clean entries that do not record source/provenance",
+    )
     args = parser.parse_args()
 
     manifest_path = Path(args.corpus).expanduser()
@@ -60,8 +82,12 @@ def main() -> int:
         return 1
 
     problems: list[str] = []
+    warnings: list[str] = []
     samples = []
     seen: dict[str, str] = {}
+    imphash_seen: dict[str, str] = {}
+    imphash_groups: Counter[str] = Counter()
+    broader_mode_count = 0
     for index, entry in enumerate(entries):
         if not isinstance(entry, dict):
             problems.append(f"entry {index}: not an object")
@@ -90,10 +116,30 @@ def main() -> int:
         except OSError as exc:
             problems.append(f"entry {index}: unreadable: {exc}")
             continue
+        expected_digest = entry.get("sha256")
+        if expected_digest is not None and str(expected_digest).lower().strip() != digest.lower():
+            problems.append(f"entry {index}: declared sha256 mismatch for {relative}")
         if digest in seen:
             problems.append(f"entry {index}: duplicate sha256 of {seen[digest]}")
         else:
             seen[digest] = str(relative)
+
+        source = entry.get("provenance") or entry.get("source_url") or entry.get("source")
+        if args.require_provenance and label in {"suspicious", "malicious"} and not source:
+            problems.append(f"entry {index}: non-clean sample has no provenance/source field")
+        elif label in {"suspicious", "malicious"} and not source:
+            warnings.append(f"entry {index}: non-clean sample has no provenance/source field")
+
+        mode = _mode(sample_path)
+        if mode & 0o077:
+            broader_mode_count += 1
+        imphash = _imphash(sample_path)
+        if imphash:
+            imphash_groups[imphash] += 1
+            if imphash in imphash_seen:
+                warnings.append(f"entry {index}: duplicate imphash {imphash} ({imphash_seen[imphash]})")
+            else:
+                imphash_seen[imphash] = str(relative)
 
         try:
             info = parse_pe(sample_path.read_bytes())
@@ -117,6 +163,9 @@ def main() -> int:
             }
         )
 
+    if broader_mode_count:
+        warnings.append(f"{broader_mode_count} sample file(s) are readable by group/other users; use mode 0600")
+
     summary: dict[str, object] = {
         "manifest": str(manifest_path),
         "samples": len(samples),
@@ -129,7 +178,15 @@ def main() -> int:
         "dotnet": sum(1 for s in samples if s["dotnet"]),
         "packers": dict(sorted(Counter(str(s["packer"] or "none").lower() for s in samples).items())),
         "total_bytes": sum(s["size"] for s in samples),
+        "imphash_duplicate_groups": sum(1 for count in imphash_groups.values() if count > 1),
+        "warnings": warnings,
     }
+    if samples:
+        dominant_count = max(Counter(s["family"] for s in samples).values())
+        if dominant_count / len(samples) > 0.5:
+            dominant = Counter(s["family"] for s in samples).most_common(1)[0][0]
+            warnings.append(f"family skew: {dominant_count}/{len(samples)} samples belong to {dominant!r}")
+            summary["warnings"] = warnings
 
     if args.json:
         print(json.dumps(summary, indent=2))
@@ -142,6 +199,12 @@ def main() -> int:
         print(f".NET     : {summary['dotnet']}")
         print(f"installer hints: {summary['installer']}")
         print(f"packers  : {summary['packers']}")
+        if summary["imphash_duplicate_groups"]:
+            print(f"imphash duplicate groups: {summary['imphash_duplicate_groups']}")
+        if warnings:
+            print(f"\nwarnings ({len(warnings)}):")
+            for warning in warnings:
+                print(f"  - {warning}")
         if problems:
             print(f"\nproblems ({len(problems)}):")
             for problem in problems:

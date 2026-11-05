@@ -1,4 +1,4 @@
-.PHONY: install test sample demo upx corpus eval bench corpus-benign corpus-installers corpus-mixed corpus-extended eval-emulation upx-corpus eval-unpack corpus-validate fp-study dashboard clean
+.PHONY: install test sample demo upx corpus eval bench corpus-benign corpus-installers corpus-mixed corpus-extended eval-emulation upx-corpus eval-unpack corpus-validate fp-study real-eval dashboard clean
 
 PY := .venv/bin/python
 PIP := .venv/bin/pip
@@ -55,6 +55,13 @@ corpus-validate:
 
 fp-study: corpus-mixed
 	$(PY) scripts/false_positive_study.py corpus/mixed --format markdown
+
+real-eval:
+	@if [ -z "$(CORPUS)" ]; then \
+		echo "usage: make real-eval CORPUS=/path/to/real-corpus [ARGS=\"--emulation --timeout 60\"]" >&2; \
+		exit 1; \
+	fi
+	$(PY) scripts/run_real_corpus_evaluation.py "$(CORPUS)" --require-provenance $(ARGS)
 
 upx-corpus:
 	@if [ -z "$(SRC)" ]; then \

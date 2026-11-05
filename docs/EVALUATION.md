@@ -29,6 +29,15 @@ hints 0/2, .NET 0/1; non-clean synthetic detected 7/8 — the one miss is
 samples), so it is a smoke check, not a comprehensive false-positive study.
 Use `docs/REAL_CORPUS.md` to expand them in an isolated lab.
 
+## Isolated laboratory procedure
+
+A complete, repeatable isolated measurement procedure is specified in
+`docs/ISOLATED_LAB.md`. `scripts/run_real_corpus_evaluation.py` validates a
+real corpus and runs static / unpack / optional emulation analysis; no shipped
+result exists yet. For a real report to be publishable, the corpus must meet
+the minimum controls in that document, including provenance for non-clean
+samples.
+
 ## What the corpora are — and are not
 
 - `corpus/local-benign` is **real** Windows PE software (Microsoft/VS Code
