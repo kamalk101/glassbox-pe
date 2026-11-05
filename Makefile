@@ -1,4 +1,4 @@
-.PHONY: install test sample demo upx corpus eval bench corpus-benign corpus-installers corpus-mixed corpus-extended eval-emulation upx-corpus eval-unpack corpus-validate fp-study real-eval emu-coverage dashboard clean
+.PHONY: install test sample demo upx corpus eval bench corpus-benign corpus-installers corpus-mixed corpus-extended eval-emulation upx-corpus eval-unpack corpus-validate fp-study real-eval emu-coverage corpus-emulation dashboard clean
 
 PY := .venv/bin/python
 PIP := .venv/bin/pip
@@ -55,6 +55,9 @@ emu-coverage:
 		echo "usage: make emu-coverage REPORT=/path/to/evaluation.json" >&2; exit 1; \
 	fi
 	$(PY) scripts/summarize_emulation_coverage.py "$(REPORT)" --markdown
+
+corpus-emulation: corpus-benign
+	$(PY) scripts/run_emulation_coverage.py corpus/local-benign --output-dir reports/emulation-coverage --timeout 8
 
 corpus-validate:
 	$(PY) scripts/validate_corpus.py corpus/mixed

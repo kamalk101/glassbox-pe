@@ -36,21 +36,42 @@ fields; use a fresh evaluation run to populate them.
 | Dynamic code segments | 0 |
 | Attempted behaviour counts | `dynamic_loading` 73, `file` 8 |
 
-The four unsupported samples are all ARM64, so they are reported as explicit
-failures rather than counted as successful emulation.
-
-Static evaluation remains:
-
-- 23/23 correctly classified as clean;
-- 0 false positives;
-- no real malicious positives.
-
 ## Public installer corpus
 
-The five pinned public installer binaries were **not re-run in emulation** for
-this pass. The extended evaluation was interrupted by resource exhaustion of
-the host, and an uncompleted run must not be reported as coverage. No installer
-results are claimed here.
+A separate sequential coverage run completed for 4/5 installers. `nuget.exe`
+failed to produce a Speakeasy report.
+
+| Set | Result |
+|---|---|
+| x86/x64 samples | 4/5 ran in emulation |
+| ARM64 samples | none |
+| API events | 269 |
+| Samples with API events | 4/4 x86/x64 |
+| Samples with `file` events | 1 |
+| Samples with `process` events | 4 |
+| Samples with `pe` events | 4 |
+| Samples with `other` events | 4 |
+| Samples with `network` events | 0 |
+| Samples with `registry` events | 0 |
+| Attempted behaviour counts | `dynamic_loading` 33, `file` 2 |
+
+## Combined benign/installer coverage
+
+| Set | Result |
+|---|---|
+| x86/x64 samples | 23/28 ran in emulation |
+| ARM64 samples | 4/28 rejected by the backend (expected) |
+| API events | 1,796 |
+| Samples with `file` events | 9 |
+| Samples with `process` events | 16 |
+| Samples with `pe` events | 23 |
+| Samples with `other` events | 23 |
+| Samples with `network` events | 0 |
+| Samples with `registry` events | 0 |
+| Dropped files | 0 |
+| Dynamic code segments | 0 |
+| Attempted behaviour counts | `dynamic_loading` 106, `file` 10 |
+| Failed emulations | 5 (4 ARM64 + nuget) |
 
 ## Synthetic acceptance coverage
 

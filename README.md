@@ -170,6 +170,7 @@ The corpus tooling builds several evaluation sets:
   isolated lab, validates provenance/integrity, runs static and UPX-unpack
   evaluation (optionally Speakeasy), and writes a report with mispredictions.
   See `docs/ISOLATED_LAB.md` and `docs/REAL_CORPUS.md`.
+- `scripts/run_emulation_coverage.py` (`make emu-coverage`) — runs Speakeasy over a corpus, one sample per subprocess, and writes a coverage matrix without executing samples natively. See `docs/EMULATION_COVERAGE.md`.
 - `scripts/validate_corpus.py` (`make corpus-validate`) — checks manifest shape,
   duplicates, labels, ATT&CK IDs, provenance, imphash clusters, permissions,
   and reports signed / installer / .NET / packer coverage.
