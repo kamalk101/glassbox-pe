@@ -14,6 +14,7 @@ COLUMNS = [
     ("confidence", "Confidence"),
     ("sneakiness", "Sneakiness"),
     ("unpack_status", "Unpack"),
+    ("observed_ran", "Observed"),
     ("created_at", "Created"),
 ]
 

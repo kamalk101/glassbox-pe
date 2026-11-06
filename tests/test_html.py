@@ -37,6 +37,33 @@ def test_html_report_has_offline_structure_and_evidence(tmp_path):
     assert "&lt;script&gt;alert" in html
 
 
+def test_html_report_renders_observed_evidence(tmp_path):
+    from glassbox.observed import attach_observed, load_report
+    import json
+
+    case = _analyzed(tmp_path)
+    report_path = tmp_path / "observed.json"
+    report_path.write_text(
+        json.dumps(
+            {
+                "sample": {"sha256": case.hashes["sha256"], "file_name": case.file_name},
+                "environment": {"vm_name": "tiny", "isolated": True},
+                "started_at": "2026-11-06T00:00:00+00:00",
+                "ended_at": "2026-11-06T00:00:01+00:00",
+                "events": [{"action": "process_start", "category": "process", "target": "sample.exe"}],
+                "dropped_files": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    attach_observed(case, load_report(report_path))
+    html = render_html(case, generated_at="2026-01-01 00:00 UTC")
+
+    assert "Observed evidence" in html
+    assert "tiny" in html
+
+
 def test_html_view_includes_static_and_correlation_sections(tmp_path):
     case = _analyzed(tmp_path)
 

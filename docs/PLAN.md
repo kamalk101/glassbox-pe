@@ -86,6 +86,7 @@ Every fact is an event:
 | **6** | Corpus, evaluation (PR-AUC, per-technique recall, evasion), demo script | partial (synthetic + local benign + mixed set; ablation modes, staging/validation/FP-study tooling; real malicious samples pending) |
 | **7** | UI: case dashboard, evidence graph, timeline, diff viewer | done (offline searchable dashboard, multi-case timeline and verdict activity charts; interactive case graph/timeline/diff) |
 | **8** | Native Windows desktop shell (PySide6) | in progress (case list, scan queue, detail views) |
+| **9** | Observed VM backend | host-side implementation done; isolated lab validation pending |
 
 ## Feature tiers
 

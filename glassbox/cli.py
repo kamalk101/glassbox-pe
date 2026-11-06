@@ -21,6 +21,7 @@ from .report import render_case, render_html, render_json, render_quiet
 from .report.dashboard import render_dashboard, write_case_reports
 from .report.eval_terminal import render_evaluation
 from .schema import TOOL_VERSION, Case, Category, Severity, Source, VerdictLabel
+from .observed import attach_observed, load_report
 from .static.rules import RULE_CATALOG
 from .static.yara import load_rules as load_yara_rules
 from .unpack import diff_cases, unpack_sample
@@ -420,6 +421,58 @@ def unpack(
     else:
         render_case(case, case_path=str(store.case_path(case.case_id)))
     ctx.exit(_exit_code(case))
+
+
+@cli.group()
+def observe() -> None:
+    """Attach an isolated VM observation report to a case."""
+
+
+@observe.command("ingest")
+@click.option("--report", "report_path", required=True, type=click.Path(exists=True, dir_okay=False, path_type=Path), help="Observed-run JSON report produced in the Windows lab.")
+@click.option("--sample", default=None, type=click.Path(exists=True, dir_okay=False, path_type=Path), help="Sample to statically scan before attaching the observation.")
+@click.option("--case-id", default=None, help="Existing case id or unique prefix.")
+@click.option("--cases-dir", default=None)
+@click.option("--json", "as_json", is_flag=True)
+@click.option("--force", is_flag=True, help="Re-scan the sample before attaching the report.")
+@click.pass_context
+def observed_ingest(ctx, report_path, sample, case_id, cases_dir, as_json, force):
+    """Merge an observed-run report into a case."""
+    try:
+        report = load_report(report_path)
+    except ValueError as exc:
+        click.echo(f"error: {exc}", err=True)
+        ctx.exit(3)
+
+    store = CaseStore(resolve_cases_dir(cases_dir))
+    if sample and case_id:
+        click.echo("error: choose --sample or --case-id, not both", err=True)
+        ctx.exit(3)
+    try:
+        if sample:
+            case, _, store = _scan(sample, cases_dir, force)
+        elif case_id:
+            case = _resolve_case(store, case_id)
+        else:
+            click.echo("error: provide --sample or --case-id", err=True)
+            ctx.exit(3)
+    except (OSError, ValueError) as exc:
+        click.echo(f"error: {exc}", err=True)
+        ctx.exit(3)
+
+    if report.sample_sha256 and case.hashes.get("sha256", "").lower() != report.sample_sha256:
+        click.echo("error: observed report does not match the selected sample", err=True)
+        ctx.exit(3)
+
+    attach_observed(case, report)
+    if case.verdict:
+        case.verdict.static_only = False
+    _recompute_verdict(case)
+    store.save(case)
+    if as_json:
+        click.echo(render_json(case))
+    else:
+        render_case(case, case_path=str(store.case_path(case.case_id)))
 
 
 @cli.command()

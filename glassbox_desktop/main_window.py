@@ -156,7 +156,7 @@ class MainWindow(QMainWindow):
         self.summary_tab = QWidget()
         self.summary_layout = QFormLayout(self.summary_tab)
         self._summary_labels = {}
-        for key in ["File", "SHA256", "Verdict", "Score", "Confidence", "Sneakiness", "Signature", "Imports"]:
+        for key in ["File", "SHA256", "Verdict", "Score", "Confidence", "Sneakiness", "Signature", "Imports", "Observed"]:
             label = QLabel("-")
             label.setWordWrap(True)
             self.summary_layout.addRow(QLabel(key), label)
@@ -275,6 +275,8 @@ class MainWindow(QMainWindow):
         self._summary_labels["Score"].setText(f"{verdict.score if verdict else 0}/100" if verdict else "-")
         self._summary_labels["Confidence"].setText(f"{verdict.confidence:.2f}" if verdict else "-")
         self._summary_labels["Sneakiness"].setText(str(verdict.sneakiness) if verdict else "-")
+        observed = case.artifacts.get("observed") or {}
+        self._summary_labels["Observed"].setText(str(bool(observed.get("events") or observed.get("dropped_files"))))
         self._summary_labels["Signature"].setText(str(case.artifacts.get("pe", {}).get("signed", False)))
         self._summary_labels["Imports"].setText(str(case.artifacts.get("pe", {}).get("imports", 0)))
         self.status_label.setText(f"{case.file_name}: {label.upper()}" if verdict else f"{case.file_name}")

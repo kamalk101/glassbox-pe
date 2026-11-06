@@ -356,6 +356,7 @@ def build_html_view(case: Case) -> dict[str, Any]:
         "imports_count": len(case.artifacts.get("imports_all") or []),
         "unpack": _unpack_view(case.artifacts.get("unpack")),
         "emulation": case.artifacts.get("emulation") or {},
+        "observed": case.artifacts.get("observed") or {},
         "errors": case.errors,
     }
 

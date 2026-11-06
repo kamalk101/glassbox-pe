@@ -56,6 +56,7 @@ class CaseStore:
             artifacts = raw.get("artifacts") or {}
             unpack = artifacts.get("unpack") or {}
             emulation = artifacts.get("emulation") or {}
+            observed = artifacts.get("observed") or {}
             rows.append(
                 {
                     "case_id": raw.get("case_id", entry.name),
@@ -68,6 +69,7 @@ class CaseStore:
                     "sneakiness": verdict.get("sneakiness", 0),
                     "unpack_status": unpack.get("status"),
                     "emulation_ran": bool(emulation.get("ran")),
+                    "observed_ran": bool(observed.get("events") or observed.get("dropped_files")),
                     "has_report": (entry / "report.html").is_file(),
                 }
             )

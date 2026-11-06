@@ -279,10 +279,10 @@ from the repository.
 
 Tests build synthetic PE fixtures in `tests/fixtures/make_pe.py`; no malware is
 required. Emulation tests are skipped if Speakeasy is not installed. The current
-suite has 71 tests, including corpus metrics, HTML escaping, dashboard
+suite has 73 tests, including corpus metrics, HTML escaping, dashboard
 generation, UPX unpacking with a fake unpacker, generic embedded-PE unpacking,
 pointer resolution, YARA matching, .NET metadata markers, emulation coverage,
-desktop workbench construction, the real-corpus runner, interactive report
+desktop workbench construction, observed VM evidence import, the real-corpus runner, interactive report
 sections, and the evaluation ablation harness.
 
 ## Current limitations

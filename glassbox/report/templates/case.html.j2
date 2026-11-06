@@ -679,6 +679,27 @@
       {% endif %}
     </section>
 
+    <section class="card" id="observed">
+      <h2>Observed evidence</h2>
+      {% if view.observed.get("events") or view.observed.get("dropped_files") %}
+      <div class="metric-row">
+        <div class="metric"><b>{{ view.observed.get("events", 0) }}</b><span>events</span></div>
+        <div class="metric"><b>{{ view.observed.get("dropped_files", 0) }}</b><span>dropped files</span></div>
+        <div class="metric"><b>{{ view.observed.get("environment", {}).get("vm_name", "?") }}</b><span>VM</span></div>
+      </div>
+      <table class="facts">
+        <tr><td>environment</td><td>{{ view.observed.get("environment", {}) }}</td></tr>
+        <tr><td>started</td><td class="mono small">{{ view.observed.get("started_at") or "-" }}</td></tr>
+        <tr><td>ended</td><td class="mono small">{{ view.observed.get("ended_at") or "-" }}</td></tr>
+      </table>
+      {% if view.observed.get("events") %}
+        <div class="chips">{% for _ in range(view.observed.get("events", 0)) %}<span class="chip">observed event</span>{% endfor %}</div>
+      {% endif %}
+      {% else %}
+        <p class="empty">No observed VM report has been imported for this case.</p>
+      {% endif %}
+    </section>
+
     {% if view.verdict and view.verdict.counterfactuals %}
     <section class="card">
       <h2>Counterfactuals</h2>
