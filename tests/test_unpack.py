@@ -6,21 +6,7 @@ from glassbox.static.packer import PackerInfo
 from glassbox.unpack import diff_cases, unpack_sample
 from glassbox.unpack.service import UnpackResult
 from tests.fixtures.make_pe import DEFAULT_IMPORTS, build_pe
-
-
-def _fake_upx(tmp_path: Path) -> Path:
-    script = tmp_path / "fake-upx"
-    script.write_text(
-        """#!/bin/sh
-while [ $# -gt 0 ]; do
-  if [ "$1" = "-o" ]; then out="$2"; shift 2; else shift; fi
-done
-cp "$FAKE_UNPACKED" "$out"
-""",
-        encoding="utf-8",
-    )
-    script.chmod(0o755)
-    return script
+from tests.fixtures.fake_upx import make_fake_upx
 
 
 def _write_sample(path: Path, **kwargs) -> Path:
@@ -35,7 +21,7 @@ def test_unpack_upx_with_fake_tool(tmp_path, monkeypatch):
         imports=DEFAULT_IMPORTS + ["SetWindowsHookExA"],
         strings=["hello from the unpacked payload"],
     )
-    fake = _fake_upx(tmp_path)
+    fake = make_fake_upx(tmp_path)
     monkeypatch.setenv("GLASSBOX_UPX", str(fake))
     monkeypatch.setenv("FAKE_UNPACKED", str(unpacked))
 

@@ -43,4 +43,7 @@ def test_real_corpus_runner_generates_report(tmp_path):
     assert validation["samples"] == 1
     assert validation["problems"] == []
     assert validation["validator_return_code"] == 0
-    assert os.stat(output).st_mode & 0o077 == 0
+    if os.name == "nt":
+        assert output.is_dir()
+    else:
+        assert os.stat(output).st_mode & 0o077 == 0

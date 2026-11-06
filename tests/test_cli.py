@@ -155,17 +155,11 @@ def test_cli_unpack_upx_with_fake_tool(tmp_path):
         )
     )
 
-    fake = tmp_path / "fake-upx"
-    fake.write_text(
-        """#!/bin/sh
-while [ $# -gt 0 ]; do
-  if [ "$1" = "-o" ]; then out="$2"; shift 2; else shift; fi
-done
-cp "$FAKE_UNPACKED" "$out"
-""",
-        encoding="utf-8",
-    )
-    fake.chmod(0o755)
+    import sys
+
+    from tests.fixtures.fake_upx import make_fake_upx
+
+    fake = make_fake_upx(tmp_path)
 
     cases = tmp_path / "cases"
     runner = CliRunner()
