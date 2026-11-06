@@ -119,6 +119,12 @@ It also checks that file, network, and registry resources are resolved from
 image-backed pointers and that the no-API-trace finding carries ATT&CK
 markers.
 
+A runtime support probe using a tiny synthetic PE that calls `InternetOpenA`
+and `RegSetValueExA` logged `InternetOpenA` as attempted network behaviour.
+That Speakeasy build produced no registry API events for `RegSetValueExA`;
+instead it returned a report with zero API calls. Registry category behaviour
+is therefore parser- and fixture-validated in this project, not dynamically
+validated by real-world Speakeasy behaviour.
 
 This proves the emulation plumbing and classification are wired. It does **not**
 prove how often real software reaches those paths.
@@ -138,11 +144,13 @@ prove how often real software reaches those paths.
 
 1. Benign software that actually opens a network socket or writes an autorun
    key needs to be included, or coverage will remain 0 for those categories.
-2. Public installer emulation requires either an isolated/low-memory runner or
+2. Registry attempted runtime coverage depends on Speakeasy support for those
+  APIs; current evidence is parser/fixture-validated, not runtime-validated.
+3. Public installer emulation requires either an isolated/low-memory runner or
    explicit fixture evidence; the current local corpus does not supply it.
-3. Real-malicious emulation is outside this pass and requires an isolated lab
+4. Real-malicious emulation is outside this pass and requires an isolated lab
    and lawful samples.
-4. A network/registry coverage percentage is not reported until representative
+5. A network/registry coverage percentage is not reported until representative
    samples exercise those categories.
 
 ## How to regenerate this evidence
