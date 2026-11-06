@@ -144,8 +144,9 @@ and writes a measurement report without executing a sample.
 `scripts/run_emulation_coverage.py` runs Speakeasy across a benign corpus, one
 sample per subprocess, and writes a category/behaviour coverage matrix.
 `scripts/summarize_emulation_coverage.py` prints a per-sample and per-category
-coverage table from an emulation JSON report. See `docs/REAL_CORPUS.md`, `docs/ISOLATED_LAB.md`, `docs/EMULATION_COVERAGE.md`, and
-`docs/EVALUATION.md`. The
+coverage table from an emulation JSON report. See `docs/REAL_CORPUS.md`,
+`docs/ISOLATED_LAB.md`, `docs/PHASE_6_DRY_RUN.md`, `docs/EMULATION_COVERAGE.md`,
+and `docs/EVALUATION.md`. The
 harness can be pointed at a real malicious corpus once samples are lawfully
 available.
 

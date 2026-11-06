@@ -34,9 +34,10 @@ Use `docs/REAL_CORPUS.md` to expand them in an isolated lab.
 A complete, repeatable isolated measurement procedure is specified in
 `docs/ISOLATED_LAB.md`. `scripts/run_real_corpus_evaluation.py` validates a
 real corpus and runs static / unpack / optional emulation analysis; no shipped
-result exists yet. For a real report to be publishable, the corpus must meet
-the minimum controls in that document, including provenance for non-clean
-samples.
+result exists yet. See `docs/PHASE_6_DRY_RUN.md` for a synthetic-fixture
+pipeline exercise; it is not real-malicious evidence. For a real report to be
+publishable, the corpus must meet the minimum controls in that document,
+including provenance for non-clean samples.
 
 ## What the corpora are — and are not
 
