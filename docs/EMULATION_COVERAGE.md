@@ -97,14 +97,23 @@ installer binaries. The five-candidate pass above is a separate focused check.
 
 ## Synthetic acceptance coverage
 
-`tests/test_emu.py` exercises a report containing:
+`tests/fixtures/speakeasy_reports.py` contains a synthetic Speakeasy report
+that exercises the full attempted-behaviour surface:
 
-- `KERNEL32.CreateRemoteThread` and `WriteProcessMemory` → `GB-EMU-001`;
-- `KERNEL32.InternetOpenA` → `GB-EMU-003`;
-- `KERNEL32.CreateFileA` and `WriteFile` → file/write events;
-- `ADVAPI32.RegSetValueExA` → `GB-EMU-002`;
-- `ADVAPI32.RegOpenKeyExA` → `GB-EMU-012`;
-- runtime code segments → `GB-EMU-011`.
+- process injection → `GB-EMU-001`;
+- registry persistence → `GB-EMU-002`;
+- network communication → `GB-EMU-003`;
+- file writes → `GB-EMU-006`;
+- attempted registry query → `GB-EMU-012`;
+- runtime code segments → `GB-EMU-011`;
+- keylogging and screen capture → `GB-EMU-008` and `GB-EMU-009`;
+- dropped files → `GB-EMU-010`.
+
+Lowest-value attempted findings are deliberately suppressed when static
+analysis already established the same capability (for example execution,
+runtime loading, anti-analysis). The fixture test checks that higher-value or
+new signals remain, that file/network/registry resources are recorded, and
+that an unclassified startup API maps to `other`.
 
 It also checks that file, network, and registry resources are resolved from
 image-backed pointers and that the no-API-trace finding carries ATT&CK

@@ -264,7 +264,7 @@ glassbox/
 
 Tests build synthetic PE fixtures in `tests/fixtures/make_pe.py`; no malware is
 required. Emulation tests are skipped if Speakeasy is not installed. The current
-suite has 67 tests, including corpus metrics, HTML escaping, dashboard
+suite has 68 tests, including corpus metrics, HTML escaping, dashboard
 generation, UPX unpacking with a fake unpacker, generic embedded-PE unpacking,
 pointer resolution, YARA matching, .NET metadata markers, emulation coverage,
 the real-corpus runner, interactive report sections, and the evaluation

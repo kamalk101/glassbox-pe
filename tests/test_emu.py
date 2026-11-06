@@ -6,6 +6,7 @@ from glassbox.schema import Source, Strength
 from glassbox.static.imports import classify_api
 from glassbox.static.pe import parse_pe
 from tests.fixtures.make_pe import build_pe
+from tests.fixtures.speakeasy_reports import network_registry_report
 
 
 def _static_case(tmp_path):
@@ -230,3 +231,46 @@ def test_apply_emulation_without_report_keeps_static_case(tmp_path):
     apply_emulation(case, EmulationOutcome(ran=False, error="not installed"))
     assert case.verdict.to_dict() == before
     assert any("emulation" in error for error in case.errors)
+
+
+def test_network_registry_report_exercises_all_categories(tmp_path):
+    case = _static_case(tmp_path)
+    dropped = tmp_path / "dropped.exe"
+    dropped.write_bytes(b"MZ" + b"\x00" * 32)
+    report = network_registry_report()
+    outcome = EmulationOutcome(
+        ran=True,
+        report=report,
+        report_path=str(tmp_path / "report.json"),
+        dropped_files=[DroppedFile(path=str(dropped), size=dropped.stat().st_size, sha256="0" * 64)],
+    )
+
+    apply_emulation(case, outcome)
+
+    categories = {e.category.value for e in case.events if e.source is Source.EMULATION}
+    assert {"process", "file", "network", "registry", "pe", "other"} <= categories
+
+    resources = case.artifacts["emulation"]["resources"]
+    assert "C:\\Users\\Public\\svchost.exe" in resources["file"]
+    assert "http://bad.example/gate.php" in resources["network"]
+    assert "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run" in resources["registry"]
+
+    rule_ids = {f.rule_id for f in case.findings}
+    # Low-level attempted findings are suppressed when static analysis already
+    # established the same capability (for example execution, dynamic loading,
+    # or anti-analysis). High- and medium-confidence attempted behaviour and
+    # file/registry-query signals are still recorded.
+    assert {
+        "GB-EMU-001",
+        "GB-EMU-002",
+        "GB-EMU-003",
+        "GB-EMU-006",
+        "GB-EMU-008",
+        "GB-EMU-009",
+        "GB-EMU-010",
+        "GB-EMU-011",
+        "GB-EMU-012",
+    } <= rule_ids
+
+    assert case.artifacts["emulation"]["api_calls"] == 15
+    assert case.artifacts["emulation"]["dropped_files"]
