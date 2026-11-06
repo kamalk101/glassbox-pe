@@ -84,7 +84,7 @@ Every fact is an event:
 | **4** | Speakeasy emulation: process/file/network/registry events, dropped files | basic done, validated on 23 local benign samples (19 ran, 4 ARM64 unsupported); network/registry classification, pointer resolution, and a full synthetic all-category report added; network/registry still not observed in benign corpus |
 | **5** | Correlation, technique-level verdicts, evidence graph, HTML report, differential | done (correlation summary, evidence-linked HTML, unpack diff); graph UI later |
 | **6** | Corpus, evaluation (PR-AUC, per-technique recall, evasion), demo script | partial (synthetic + local benign + mixed set; ablation modes, staging/validation/FP-study tooling; real malicious samples pending) |
-| **7** | UI: case dashboard, evidence graph, timeline, diff viewer | partial (offline searchable dashboard; interactive case-report evidence graph, timeline, and unpack diff viewer; global dashboard timeline pending) |
+| **7** | UI: case dashboard, evidence graph, timeline, diff viewer | done (offline searchable dashboard, multi-case timeline and verdict activity charts; interactive case graph/timeline/diff) |
 
 ## Feature tiers
 

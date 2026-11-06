@@ -78,6 +78,28 @@
     .yes { color: var(--green); }
     .no { color: var(--muted); }
     .empty { color: var(--muted); font-style: italic; padding: 1.5rem 0; }
+    .nav-grid { display: grid; grid-template-columns: 1.6fr 1fr; gap: 1rem; margin-top: 1rem; }
+    .timeline { display: flex; flex-direction: column; gap: .6rem; max-height: 32rem; overflow-y: auto; padding-right: .3rem; }
+    .timeline-item { display: grid; grid-template-columns: 8.5rem 1fr auto; gap: .7rem; align-items: center; padding: .55rem .65rem; border: 1px solid var(--line); border-left: 4px solid var(--cyan); border-radius: .45rem; background: var(--panel-2); }
+    .timeline-item.clean { border-left-color: var(--green); }
+    .timeline-item.suspicious { border-left-color: var(--yellow); }
+    .timeline-item.malicious { border-left-color: var(--red); }
+    .timeline-item.inconclusive { border-left-color: var(--magenta); }
+    .timeline-item .when { color: var(--muted); font-size: .78rem; }
+    .timeline-item .item-file { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .activity { display: grid; gap: .45rem; }
+    .day-row { display: grid; grid-template-columns: 6.5rem 1fr auto; gap: .6rem; align-items: center; }
+    .day-bars { display: grid; gap: .1rem; }
+    .day-bar { display: flex; height: .42rem; border-radius: 99px; overflow: hidden; }
+    .day-bar.clean { background: var(--green); }
+    .day-bar.suspicious { background: var(--yellow); }
+    .day-bar.malicious { background: var(--red); }
+    .day-bar.inconclusive { background: var(--magenta); }
+    .chips { display: flex; flex-wrap: wrap; gap: .4rem; }
+    .chip { display: inline-block; padding: .16rem .45rem; border: 1px solid var(--line); border-radius: 99px; background: var(--panel-2); font-size: .75rem; }
+    @media (max-width: 900px) {
+      .nav-grid { grid-template-columns: 1fr; }
+    }
     footer { margin-top: 2rem; color: var(--muted); font-size: .8rem; text-align: center; }
     @media print {
       body { background: #fff; color: #111; }
@@ -100,7 +122,10 @@
     <div class="card"><b>{{ view.counts.clean }}</b><span>clean</span></div>
     <div class="card"><b>{{ view.counts.suspicious }}</b><span>suspicious</span></div>
     <div class="card"><b>{{ view.counts.malicious }}</b><span>malicious</span></div>
-    <div class="card"><b>{{ view.average_score }}</b><span>average score</span></div>
+    <div class="card"><b>{{ view.average_score }}</b><span>average risk score</span></div>
+    <div class="card"><b>{{ view.average_sneakiness }}</b><span>average sneakiness</span></div>
+    <div class="card"><b>{{ view.report_coverage }}%</b><span>reports generated</span></div>
+    <div class="card"><b>{{ view.emulation_coverage }}%</b><span>emulation coverage</span></div>
   </div>
 
   <section class="panel">
@@ -115,6 +140,43 @@
       {% endfor %}
     </div>
   </section>
+
+  <div class="nav-grid">
+    <section class="panel">
+      <h2>Activity timeline</h2>
+      <div class="timeline">
+        {% for item in view.timeline %}
+        <div class="timeline-item {{ item.label }}">
+          <span class="when">{{ item.created_at[:19] }}</span>
+          <span class="item-file" title="{{ item.file_name }}">{{ item.file_name }}</span>
+          <span class="mono small">{% if item.report %}<a href="{{ item.report }}">report</a>{% else %}{{ item.label }}{% endif %}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Verdicts by day</h2>
+      <div class="activity">
+        {% for day in view.activity_by_day %}
+        <div class="day-row">
+          <span class="mono small">{{ day.day }}</span>
+          <span class="day-bars">
+            {% if day.clean %}<span class="day-bar clean" style="width: {{ [day.clean * 100, 100] | min }}%"></span>{% endif %}
+            {% if day.suspicious %}<span class="day-bar suspicious" style="width: {{ [day.suspicious * 100, 100] | min }}%"></span>{% endif %}
+            {% if day.malicious %}<span class="day-bar malicious" style="width: {{ [day.malicious * 100, 100] | min }}%"></span>{% endif %}
+            {% if day.inconclusive %}<span class="day-bar inconclusive" style="width: {{ [day.inconclusive * 100, 100] | min }}%"></span>{% endif %}
+          </span>
+          <span class="small muted"></span>
+        </div>
+        {% endfor %}
+      </div>
+      <h2 style="margin-top: 1rem">Unpack status</h2>
+      <div class="chips">
+        {% for status, count in view.unpack_counts.items() %}<span class="chip">{{ status }}: {{ count }}</span>{% endfor %}
+      </div>
+    </section>
+  </div>
 
   <section class="panel">
     <h2>Cases</h2>

@@ -190,9 +190,11 @@ shows 97.2% accuracy, 87.5% binary recall, and 96% technique recall, with one
 known static false negative (`evasive-timing-only.exe`). No real malware has
 been evaluated or executed.
 `glassbox dashboard` writes an offline `index.html` with verdict counts, a
-searchable/filterable case table, and links to per-case reports. Add `--reports`
-to generate a `report.html` for every case first. The dashboard uses inline CSS
-and JavaScript only; no server or network access is required.
+searchable/filterable case table, per-case reports, a multi-case timeline,
+per-day verdict activity, unpack/emulation coverage, and average risk and
+sneakiness scores. Add `--reports` to generate a `report.html` for every case
+first. The dashboard uses inline CSS and JavaScript only; no server or network
+access is required.
 
 Each scan creates a case directory:
 
@@ -217,7 +219,7 @@ cases/index.html                  # dashboard index (after `dashboard`)
 | `cases list/show/delete` | working |
 | `report --json` | working |
 | `report --html` | working (standalone, offline, interactive graph/timeline/diff) |
-| `dashboard` | working (offline index, search/filter, per-case reports) |
+| `dashboard` | working (offline complete dashboard: index, search/filter, timeline, activity, reports) |
 | `rules list/test` | working |
 | `rules yara` | working |
 | `unpack` | working (UPX only; detects other packers) |
@@ -256,6 +258,14 @@ glassbox/
   report/         terminal, JSON, case HTML, dashboard, evaluation output
 ```
 
+## Windows testing
+
+GlassBox PE can be packaged as a one-file Windows CLI. PyInstaller must be run
+on Windows or in a Windows VM; it cannot cross-compile from this Linux host.
+See `docs/WINDOWS_BUILD.md` for the complete build and smoke-test procedure.
+A prebuilt executable is not checked in to exclude platform-specific binaries
+from the repository.
+
 ## Tests
 
 ```bash
@@ -285,10 +295,9 @@ ablation harness.
   recovers embedded or appended PE payloads, but many packers still report
   `unsupported`. Child payloads are analyzed one level deep, not recursively.
 - Correlation is a report-level summary; it does not yet build a full graph
-  database. The dashboard is static and offline (no server or persistent
-  application). Case reports now include an interactive evidence graph,
-  timeline, and unpack diff viewer, but there is no live server or multi-case
-  timeline.
+  database. The dashboard is static and offline (no server or persistent app),
+  but it provides multi-case search, verdict filtering, timelines, activity
+  charts, and evidence-linked per-case reports.
 - The evaluation includes real **benign** binaries, but no real **malicious**
   samples have been evaluated or executed. The local benign corpus is also not
   representative. Real-malware numbers remain outstanding.

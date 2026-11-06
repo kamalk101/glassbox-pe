@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections import Counter, defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -12,6 +13,11 @@ from .html_report import render_html
 
 TEMPLATE_DIR = Path(__file__).resolve().parent / "templates"
 LABELS = ("clean", "suspicious", "malicious", "inconclusive")
+
+
+def _day(row: dict[str, Any]) -> str:
+    created = str(row.get("created_at") or "")
+    return created[:10] if len(created) >= 10 else "unknown"
 
 
 def build_dashboard_view(rows: list[dict[str, Any]]) -> dict[str, Any]:
@@ -30,11 +36,47 @@ def build_dashboard_view(rows: list[dict[str, Any]]) -> dict[str, Any]:
         for label in LABELS
     ]
     average_score = sum(int(row.get("score") or 0) for row in ordered) / total if total else 0.0
+    average_sneakiness = sum(int(row.get("sneakiness") or 0) for row in ordered) / total if total else 0.0
+    report_count = sum(1 for row in ordered if row.get("has_report"))
+    emulation_count = sum(1 for row in ordered if row.get("emulation_ran"))
+
+    by_day: dict[str, Counter[str]] = defaultdict(Counter)
+    for row in rows:
+        by_day[_day(row)][(row.get("label") or "inconclusive")] += 1
+    activity_by_day = [
+        {
+            "day": day,
+            "clean": by_day[day]["clean"],
+            "suspicious": by_day[day]["suspicious"],
+            "malicious": by_day[day]["malicious"],
+            "inconclusive": by_day[day]["inconclusive"],
+        }
+        for day in sorted(by_day)
+    ]
+    unpack_counts = Counter(str(row.get("unpack_status") or "none") for row in rows)
+    timeline = [
+        {
+            "case_id": row.get("case_id", ""),
+            "file_name": row.get("file_name", "?"),
+            "label": row.get("label", "inconclusive"),
+            "score": row.get("score", 0),
+            "created_at": row.get("created_at", ""),
+            "report": f"{row.get('case_id', '')}/report.html" if row.get("has_report") else "",
+        }
+        for row in sorted(rows, key=lambda item: item.get("created_at", ""))
+    ]
     return {
         "total": total,
         "counts": counts,
         "distribution": distribution,
         "average_score": round(average_score, 1),
+        "average_sneakiness": round(average_sneakiness, 1),
+        "suspicious_or_malicious": counts["suspicious"] + counts["malicious"],
+        "report_coverage": round(report_count / total * 100, 1) if total else 0.0,
+        "emulation_coverage": round(emulation_count / total * 100, 1) if total else 0.0,
+        "unpack_counts": dict(sorted(unpack_counts.items())),
+        "activity_by_day": activity_by_day,
+        "timeline": timeline,
         "cases": ordered,
     }
 

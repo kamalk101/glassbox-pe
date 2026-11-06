@@ -121,6 +121,12 @@ def test_cli_dashboard_and_case_reports(tmp_path):
     assert "label-clean" in content
     assert "label-malicious" in content
     assert 'id="search"' in content
+    assert "Activity timeline" in content
+    assert "Verdicts by day" in content
+    assert "Unpack status" in content
+    assert "average sneakiness" in content
+    assert "reports generated" in content
+    assert "timeline-item" in content
     assert "wrote 2 case report(s)" in result.output
 
     report_files = list(cases.glob("*/report.html"))
