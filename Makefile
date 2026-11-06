@@ -1,4 +1,4 @@
-.PHONY: install test sample demo upx corpus eval bench corpus-benign corpus-installers corpus-mixed corpus-extended eval-emulation upx-corpus eval-unpack corpus-validate fp-study real-eval emu-coverage corpus-emulation dashboard clean
+.PHONY: install install-desktop test sample demo upx corpus eval bench corpus-benign corpus-installers corpus-mixed corpus-extended eval-emulation upx-corpus eval-unpack corpus-validate fp-study real-eval emu-coverage corpus-emulation dashboard clean
 
 PY := .venv/bin/python
 PIP := .venv/bin/pip
@@ -9,6 +9,9 @@ CASES := /tmp/opencode/glassbox-cases
 install:
 	python3 -m venv .venv
 	$(PIP) install -e ".[dev,emu]"
+
+install-desktop:
+	$(PIP) install -e ".[dev,emu,desktop]"
 
 test:
 	$(PY) -m pytest

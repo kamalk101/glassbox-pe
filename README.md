@@ -8,8 +8,9 @@ event.
 
 > Status: **static core + built-in YARA + Speakeasy emulation + UPX unpacking +
 > evidence-linked reports + labelled-corpus evaluation (static / unpack / emulation)
-> + offline case dashboard**. Real local benign-corpus evaluation is in place;
-> real-malware evaluation is still pending. See `docs/EVALUATION.md` and `docs/PLAN.md`.
+> + offline case dashboard + PySide6 desktop workbench**. Real local benign-corpus
+> evaluation is in place; real-malware evaluation is still pending. See
+> `docs/EVALUATION.md` and `docs/PLAN.md`.
 
 ## Why
 
@@ -92,6 +93,10 @@ glassbox report <sha256> --html --output /tmp/case.html
 
 # Offline dashboard for every stored case (with per-case HTML reports)
 glassbox dashboard --reports
+
+# Offline desktop workbench
+make install-desktop
+glassbox-gui
 
 # Build the synthetic demo corpus and evaluate static triage
 make corpus
@@ -274,11 +279,11 @@ from the repository.
 
 Tests build synthetic PE fixtures in `tests/fixtures/make_pe.py`; no malware is
 required. Emulation tests are skipped if Speakeasy is not installed. The current
-suite has 68 tests, including corpus metrics, HTML escaping, dashboard
+suite has 71 tests, including corpus metrics, HTML escaping, dashboard
 generation, UPX unpacking with a fake unpacker, generic embedded-PE unpacking,
 pointer resolution, YARA matching, .NET metadata markers, emulation coverage,
-the real-corpus runner, interactive report sections, and the evaluation
-ablation harness.
+desktop workbench construction, the real-corpus runner, interactive report
+sections, and the evaluation ablation harness.
 
 ## Current limitations
 

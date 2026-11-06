@@ -31,11 +31,11 @@ Or use the helper:
 pwsh -ExecutionPolicy Bypass -File scripts\build-windows.ps1
 ```
 
-The helper runs the tests unless `-SkipTests` is supplied, installs build
-dependencies, and produces:
+The helper builds:
 
 ```text
-GlassBoxPE.exe
+GlassBoxPE.exe            # CLI
+GlassBoxPE-Workbench.exe  # desktop UI
 ```
 
 PyInstaller also writes an equivalent file under `dist\GlassBoxPE.exe`.
@@ -46,6 +46,7 @@ After building, run:
 
 ```powershell
 .\GlassBoxPE.exe --version
+.\GlassBoxPE-Workbench.exe
 .\GlassBoxPE.exe scan C:\Windows\System32\notepad.exe --json
 ```
 

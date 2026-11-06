@@ -20,7 +20,7 @@ if (-not (Test-Path ".venv")) {
 
 & .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
-python -m pip install -e ".[dev,emu]" pyinstaller
+python -m pip install -e ".[dev,emu,desktop]" pyinstaller
 
 if (-not $SkipTests) {
     python -m pytest
@@ -34,5 +34,13 @@ New-Item -ItemType Directory -Force -Path dist | Out-Null
     --name GlassBoxPE `
     scripts\windows_entry.py
 
+& .\.venv\Scripts\pyinstaller.exe `
+    --clean `
+    --onefile `
+    --windowed `
+    --name GlassBoxPE-Workbench `
+    scripts\gui_entry.py
+
 Copy-Item -Force dist\GlassBoxPE.exe GlassBoxPE.exe
-Write-Host "Built GlassBoxPE.exe in $ProjectRoot"
+Copy-Item -Force dist\GlassBoxPE-Workbench.exe GlassBoxPE-Workbench.exe
+Write-Host "Built GlassBoxPE.exe and GlassBoxPE-Workbench.exe in $ProjectRoot"
